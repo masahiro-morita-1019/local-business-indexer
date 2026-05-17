@@ -43,8 +43,9 @@ export async function runDiscover(params: DiscoverParams): Promise<DiscoverSumma
     `[discover] 分類結果: none=${byClass.none}, sns_only=${byClass.sns_only}, has_website=${byClass.has_website}`,
   );
 
-  const targets = classified.filter((c) => c.classification.class !== 'has_website');
-  console.log(`[discover] 営業対象(none + sns_only): ${targets.length} 件`);
+  // A+B+D方針: has_website も Phase 1.5(コンタクトスクレイパー)の対象なので全件保存。
+  // 営業フェーズではチャネル別に Notion 側でフィルタする (WebsiteClass で絞り込み)。
+  const targets = classified;
 
   if (params.dryRun) {
     console.log('[discover] --dry-run のため Notion 書き込みはスキップ');
@@ -53,7 +54,7 @@ export async function runDiscover(params: DiscoverParams): Promise<DiscoverSumma
       byClass,
       created: 0,
       updated: 0,
-      skipped: targets.length,
+      skipped: 0,
     };
   }
 
@@ -88,7 +89,7 @@ export async function runDiscover(params: DiscoverParams): Promise<DiscoverSumma
     byClass,
     created,
     updated,
-    skipped: places.length - targets.length,
+    skipped: 0,
   };
 }
 

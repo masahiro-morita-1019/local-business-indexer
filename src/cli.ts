@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { runDiscover } from './pipeline/discover.ts';
+import { runExtractContacts } from './pipeline/extractContacts.ts';
 
 const program = new Command();
 
@@ -40,6 +41,34 @@ program
         console.log(`Notion 新規追加: ${summary.created}`);
         console.log(`Notion 更新    : ${summary.updated}`);
       }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`\n[cli] 実行エラー: ${msg}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('extract-contacts')
+  .description(
+    'WebsiteClass=has_website かつ Email 未取得のページを対象に、HPからメアド/問い合わせフォームを抽出して Notion に保存',
+  )
+  .option('-l, --limit <n>', '最大処理件数', (v) => Number.parseInt(v, 10), 50)
+  .option('-p, --concurrency <n>', '並列度', (v) => Number.parseInt(v, 10), 3)
+  .option('--dry-run', 'Notion に書き込まず、結果のみ表示', false)
+  .action(async (opts: { limit: number; concurrency: number; dryRun: boolean }) => {
+    try {
+      const summary = await runExtractContacts({
+        limit: Math.max(1, opts.limit),
+        concurrency: Math.max(1, Math.min(10, opts.concurrency)),
+        dryRun: opts.dryRun,
+      });
+      console.log('\n=== サマリ ===');
+      console.log(`対象候補       : ${summary.candidates}`);
+      console.log(`メアド取得     : ${summary.emailFound}`);
+      console.log(`フォームのみ   : ${summary.formOnly}`);
+      console.log(`何も取れず     : ${summary.noContact}`);
+      console.log(`エラー         : ${summary.errors}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`\n[cli] 実行エラー: ${msg}`);

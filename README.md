@@ -4,13 +4,18 @@ Google Maps の特定エリア × 業種を調査し、**ホームページ未�
 
 将来的には「調査 → HP生成 → デプロイ → 営業文作成 → Gmail下書き」までの一貫ツールに発展させる予定(本リポジトリ内に Phase 2〜5 のディレクトリ骨格あり)。
 
-## 現在のMVPスコープ
+## 現在のスコープ
 
-調査フェーズのみ:
+- **Phase 1: 調査** — Google Places API で店舗検索 → `none` / `sns_only` / `has_website` の3段階に分類 → 全件を Notion DB に保存
+- **Phase 1.5: コンタクトスクレイパー** — `has_website` の企業のHPからメアド/問い合わせフォームURLを抽出 → Notion に追記
 
-1. Google Places API (New) で `area × category` を検索
-2. `websiteUri` を `none` / `sns_only` / `has_website` の3段階に分類
-3. `none` と `sns_only` を営業対象として Notion DB に upsert(`place_id` をキー)
+営業チャネル方針(A+B+D):
+
+- **A. 郵送DM**: `none` / `sns_only` 向け(住所・店名を使用)
+- **B. 電話営業**: `none` / `sns_only` 向け(電話番号を使用)
+- **D. メール営業**: `has_website` 向け(Phase 1.5 で取得したメアド)
+
+Phase 2(HP生成)以降は今後実装。
 
 ## セットアップ
 
@@ -54,7 +59,17 @@ pnpm setup:notion
 
 出力された `database_id` を `.env` の `NOTION_DATABASE_ID` に追記。
 
+#### 既にDB作成済の場合(スキーマ更新)
+
+```bash
+pnpm migrate:notion
+```
+
+`schema.ts` に追加されたプロパティを idempotent に追加。既存DBに対し Phase 1.5 用の `Email` / `ContactFormUrl` 等を追加するときに使う。
+
 ## 使い方
+
+### Phase 1: 調査
 
 ```bash
 # 相模原市の工務店を最大60件調査(デフォルト)
@@ -64,14 +79,39 @@ pnpm indexer discover --area "相模原市" --category "工務店"
 pnpm indexer discover --area "町田市" --category "塗装業" --limit 20 --dry-run
 ```
 
-CLI オプション:
-
 | オプション | 必須 | 説明 |
 |---|---|---|
 | `--area, -a` | ✓ | 検索エリア(例: `"相模原市"`) |
 | `--category, -c` | ✓ | 業種(例: `"工務店"`) |
 | `--limit, -l` | | 最大取得件数(1〜60、デフォルト60) |
 | `--dry-run` | | Notion 書き込みをスキップ |
+
+検索結果は `WebsiteClass = none / sns_only / has_website` を問わず **全件 Notion に保存** される。営業対象は後段の Notion ビューでフィルタする。
+
+### Phase 1.5: コンタクトスクレイパー
+
+`has_website` の企業のHPからメアド/問い合わせフォームを抽出して Notion に追記する。
+
+```bash
+# 最大50件処理(デフォルト)
+pnpm indexer extract-contacts
+
+# 件数を絞ってDryRun(Notion書き込みなし)
+pnpm indexer extract-contacts --limit 10 --dry-run
+```
+
+| オプション | 説明 |
+|---|---|
+| `--limit, -l` | 最大処理件数(デフォルト 50) |
+| `--concurrency, -p` | 並列度(1〜10、デフォルト 3)。**同一ドメインへの連続アクセスは1req/sec 制限** |
+| `--dry-run` | Notion 書き込みをスキップ |
+
+抽出ロジック:
+- robots.txt 尊重(Disallow に該当するパスはスキップ)
+- `mailto:` リンク + 本文中のメアド(`info[at]example.com` 等の簡易難読化にも対応)
+- 採用/サポート/no-reply 系の役割アドレスは自動除外
+- 問い合わせフォーム(`<form>` の action URL)も検出して保存
+- Cloudflare Email Protection は復号せず、ノートに警告だけ残す
 
 ## おすすめのテスト対象
 
@@ -97,21 +137,23 @@ pnpm test        # vitest
 
 ```
 src/
-├── cli.ts              # CLIエントリ
-├── config.ts           # 環境変数(zod検証)
-├── discovery/          # Phase 1: 調査(MVP実装済)
-│   ├── places/         # Places API (New) クライアント
-│   └── filter/         # HP判定ロジック(3段階分類)
-├── notion/             # 共通: Notion永続化レイヤ
-├── pipeline/           # 共通: 各フェーズのオーケストレータ
-│   └── discover.ts     # Phase 1 統合フロー
-├── generator/          # Phase 2: HP生成 (未実装)
-├── deployer/           # Phase 3: デプロイ (未実装)
-├── sales/              # Phase 4: 営業文生成 (未実装)
-└── mail/               # Phase 5: メール下書き (未実装)
+├── cli.ts                    # CLIエントリ
+├── config.ts                 # 環境変数(zod検証)
+├── discovery/
+│   ├── places/               # Places API (New) クライアント (Phase 1)
+│   ├── filter/               # HP判定ロジック (Phase 1)
+│   └── contact-extractor/    # コンタクト情報スクレイパー (Phase 1.5)
+├── notion/                   # 共通: Notion永続化レイヤ
+├── pipeline/
+│   ├── discover.ts           # Phase 1 統合
+│   └── extractContacts.ts    # Phase 1.5 統合
+├── generator/                # Phase 2: HP生成 (未実装)
+├── deployer/                 # Phase 3: デプロイ (未実装)
+├── sales/                    # Phase 4: 営業文生成 (未実装、outreach/ に再編予定)
+└── mail/                     # Phase 5: メール下書き (未実装、outreach/email/ に再編予定)
 ```
 
-Phase 2〜5 は README のみ置き、実装はまだ。
+Phase 2 以降は README のみ置き、実装はまだ。
 
 ## 設計の意図
 

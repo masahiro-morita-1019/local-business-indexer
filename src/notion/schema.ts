@@ -23,6 +23,11 @@ export const PROPERTIES = {
   FoundAt: 'FoundAt',
   LastCheckedAt: 'LastCheckedAt',
   Notes: 'Notes',
+  // Phase 1.5: コンタクト情報スクレイパーで追加
+  Email: 'Email',
+  ContactFormUrl: 'ContactFormUrl',
+  ContactExtractedAt: 'ContactExtractedAt',
+  ContactExtractionNote: 'ContactExtractionNote',
 } as const;
 
 export const STATUS_OPTIONS = [
@@ -64,4 +69,8 @@ export const databaseProperties: CreateDatabaseParameters['properties'] = {
   [PROPERTIES.FoundAt]: { date: {} },
   [PROPERTIES.LastCheckedAt]: { date: {} },
   [PROPERTIES.Notes]: { rich_text: {} },
+  [PROPERTIES.Email]: { email: {} },
+  [PROPERTIES.ContactFormUrl]: { url: {} },
+  [PROPERTIES.ContactExtractedAt]: { date: {} },
+  [PROPERTIES.ContactExtractionNote]: { rich_text: {} },
 };

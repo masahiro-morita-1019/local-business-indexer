@@ -10,6 +10,7 @@
   "scripts": {
     "indexer": "tsx src/cli.ts",
     "setup:notion": "tsx scripts/setup-notion-db.ts",
+    "migrate:notion": "tsx scripts/migrate-notion-db.ts",
     "typecheck": "tsc --noEmit",
     "lint": "biome check src scripts",
     "format": "biome format --write src scripts",
@@ -17,6 +18,7 @@
   },
   "dependencies": {
     "@notionhq/client": "^2.2.15",
+    "cheerio": "^1.2.0",
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",
     "p-limit": "^5.0.0",
