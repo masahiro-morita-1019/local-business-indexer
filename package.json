@@ -1,0 +1,32 @@
+{
+  "name": "local-business-indexer",
+  "version": "0.1.0",
+  "description": "Google Maps × industry を調査し HP未保有企業を Notion に集約する営業先リスト構築ツール",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "indexer": "tsx src/cli.ts",
+    "setup:notion": "tsx scripts/setup-notion-db.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src scripts",
+    "format": "biome format --write src scripts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.2.15",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "p-limit": "^5.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^20.14.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}
