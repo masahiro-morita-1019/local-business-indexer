@@ -1,5 +1,6 @@
 import type { Client } from '@notionhq/client';
 import type { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints.js';
+import type { LegalForm } from '../discovery/classify/legalForm.ts';
 import type { WebsiteClass } from '../discovery/filter/noWebsite.ts';
 import { PROPERTIES } from './schema.ts';
 
@@ -18,6 +19,11 @@ export interface BusinessRecord {
   googleMapsUrl?: string | undefined;
   types?: string[] | undefined;
   openingHours?: string | undefined;
+  // ターゲット品質改善で追加
+  isChainStore: boolean;
+  chainName?: string | undefined;
+  usesHttps?: boolean | undefined;
+  legalForm: LegalForm;
 }
 
 export type UpsertOutcome = 'created' | 'updated';
@@ -45,6 +51,10 @@ export async function upsertBusiness(
     [PROPERTIES.Types]: multiSelectProp(record.types),
     [PROPERTIES.OpeningHours]: richTextProp(record.openingHours),
     [PROPERTIES.LastCheckedAt]: dateProp(today),
+    [PROPERTIES.IsChainStore]: { checkbox: record.isChainStore },
+    [PROPERTIES.ChainName]: richTextProp(record.chainName),
+    [PROPERTIES.UsesHttps]: { checkbox: record.usesHttps ?? false },
+    [PROPERTIES.LegalForm]: selectProp(record.legalForm),
   };
 
   if (existing) {

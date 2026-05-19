@@ -28,6 +28,11 @@ export const PROPERTIES = {
   ContactFormUrl: 'ContactFormUrl',
   ContactExtractedAt: 'ContactExtractedAt',
   ContactExtractionNote: 'ContactExtractionNote',
+  // ターゲット品質改善で追加 (大手チェーン除外 / HTTPS判定 / 法人格判定)
+  IsChainStore: 'IsChainStore',
+  ChainName: 'ChainName',
+  UsesHttps: 'UsesHttps',
+  LegalForm: 'LegalForm',
 } as const;
 
 export const STATUS_OPTIONS = [
@@ -41,6 +46,19 @@ export const STATUS_OPTIONS = [
 export type StatusOption = (typeof STATUS_OPTIONS)[number];
 
 export const WEBSITE_CLASS_OPTIONS = ['none', 'sns_only', 'has_website'] as const;
+
+export const LEGAL_FORM_OPTIONS = [
+  '株式会社',
+  '有限会社',
+  '合同会社',
+  '合資会社',
+  '合名会社',
+  '一般社団法人',
+  '一般財団法人',
+  'NPO法人',
+  '医療法人',
+  '不明',
+] as const;
 
 export const databaseProperties: CreateDatabaseParameters['properties'] = {
   [PROPERTIES.Name]: { title: {} },
@@ -73,4 +91,12 @@ export const databaseProperties: CreateDatabaseParameters['properties'] = {
   [PROPERTIES.ContactFormUrl]: { url: {} },
   [PROPERTIES.ContactExtractedAt]: { date: {} },
   [PROPERTIES.ContactExtractionNote]: { rich_text: {} },
+  [PROPERTIES.IsChainStore]: { checkbox: {} },
+  [PROPERTIES.ChainName]: { rich_text: {} },
+  [PROPERTIES.UsesHttps]: { checkbox: {} },
+  [PROPERTIES.LegalForm]: {
+    select: {
+      options: LEGAL_FORM_OPTIONS.map((name) => ({ name })),
+    },
+  },
 };

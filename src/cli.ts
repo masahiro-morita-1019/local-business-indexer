@@ -33,13 +33,15 @@ program
         dryRun: opts.dryRun,
       });
       console.log('\n=== サマリ ===');
-      console.log(`発見           : ${summary.found}`);
-      console.log(`  - HP無し     : ${summary.byClass.none}`);
-      console.log(`  - SNSのみ    : ${summary.byClass.sns_only}`);
-      console.log(`  - HPあり     : ${summary.byClass.has_website}`);
+      console.log(`発見             : ${summary.found}`);
+      console.log(`  - HP無し       : ${summary.byClass.none}`);
+      console.log(`  - SNSのみ      : ${summary.byClass.sns_only}`);
+      console.log(`  - HPあり       : ${summary.byClass.has_website}`);
+      console.log(`大手チェーン店   : ${summary.chainStores} (営業対象外フラグ済)`);
+      console.log(`HTTP only (古HP) : ${summary.httpOnly}`);
       if (!opts.dryRun) {
-        console.log(`Notion 新規追加: ${summary.created}`);
-        console.log(`Notion 更新    : ${summary.updated}`);
+        console.log(`Notion 新規追加  : ${summary.created}`);
+        console.log(`Notion 更新      : ${summary.updated}`);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
