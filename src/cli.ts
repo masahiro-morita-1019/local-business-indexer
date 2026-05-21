@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { runDiscover } from './pipeline/discover.ts';
+import { runDraftCallScripts } from './pipeline/draftCallScripts.ts';
 import { runExtractContacts } from './pipeline/extractContacts.ts';
 
 const program = new Command();
@@ -76,6 +77,36 @@ program
       console.log(`エラー                 : ${summary.errors}`);
       console.log(`実応答 HTTPS 確認      : ${summary.actualHttpsConfirmed}`);
       console.log(`GBP=http→実=https の検出: ${summary.httpsUpgradeDetected}(スコア再計算済)`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`\n[cli] 実行エラー: ${msg}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('draft-call-scripts')
+  .description(
+    'OutreachPriority=高/中 かつ WebsiteClass=none/sns_only の企業向けに、Claude API で電話営業スクリプトを生成して Notion に保存',
+  )
+  .option('-l, --limit <n>', '最大処理件数', (v) => Number.parseInt(v, 10), 20)
+  .option('-p, --concurrency <n>', '並列度', (v) => Number.parseInt(v, 10), 3)
+  .option('--dry-run', 'Notion に書き込まず、結果のみ表示', false)
+  .action(async (opts: { limit: number; concurrency: number; dryRun: boolean }) => {
+    try {
+      const summary = await runDraftCallScripts({
+        limit: Math.max(1, opts.limit),
+        concurrency: Math.max(1, Math.min(10, opts.concurrency)),
+        dryRun: opts.dryRun,
+      });
+      console.log('\n=== サマリ ===');
+      console.log(`対象候補         : ${summary.candidates}`);
+      console.log(`生成成功         : ${summary.generated}`);
+      console.log(`エラー           : ${summary.errors}`);
+      console.log(`入力トークン合計 : ${summary.totalInputTokens}`);
+      console.log(`出力トークン合計 : ${summary.totalOutputTokens}`);
+      console.log(`キャッシュヒット : ${summary.totalCacheReadTokens}`);
+      console.log(`推定コスト       : $${summary.estimatedCostUsd.toFixed(4)}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`\n[cli] 実行エラー: ${msg}`);

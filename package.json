@@ -17,6 +17,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.97.1",
     "@notionhq/client": "^2.2.15",
     "cheerio": "^1.2.0",
     "commander": "^12.1.0",

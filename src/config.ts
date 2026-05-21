@@ -6,6 +6,15 @@ const envSchema = z.object({
   NOTION_API_KEY: z.string().min(1, 'NOTION_API_KEY is required'),
   NOTION_DATABASE_ID: z.string().optional(),
   NOTION_PARENT_PAGE_ID: z.string().optional(),
+  // Phase 4-B 以降で使用
+  ANTHROPIC_API_KEY: z.string().optional(),
+  OUTREACH_SENDER_NAME: z.string().optional(),
+  OUTREACH_SENDER_TITLE: z.string().optional(),
+  OUTREACH_SENDER_EMAIL: z.string().optional(),
+  OUTREACH_SENDER_PHONE: z.string().optional(),
+  OUTREACH_SENDER_ADDRESS: z.string().optional(),
+  OUTREACH_SENDER_PORTFOLIO_URL: z.string().optional(),
+  OUTREACH_UNSUBSCRIBE_URL: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -43,4 +52,38 @@ export function requireParentPageId(env: Env): string {
     );
   }
   return env.NOTION_PARENT_PAGE_ID;
+}
+
+export function requireAnthropicApiKey(env: Env): string {
+  if (!env.ANTHROPIC_API_KEY) {
+    throw new Error(
+      'ANTHROPIC_API_KEY が未設定です。https://console.anthropic.com で取得し .env に追記してください。',
+    );
+  }
+  return env.ANTHROPIC_API_KEY;
+}
+
+/**
+ * 営業文面に差し込む差出人情報。すべて任意で、未設定の項目はテンプレ上でも空欄になる。
+ */
+export interface SenderIdentity {
+  name: string;
+  title: string;
+  email: string;
+  phone: string;
+  address: string;
+  portfolioUrl: string;
+  unsubscribeUrl: string;
+}
+
+export function getSenderIdentity(env: Env): SenderIdentity {
+  return {
+    name: env.OUTREACH_SENDER_NAME ?? '',
+    title: env.OUTREACH_SENDER_TITLE ?? '',
+    email: env.OUTREACH_SENDER_EMAIL ?? '',
+    phone: env.OUTREACH_SENDER_PHONE ?? '',
+    address: env.OUTREACH_SENDER_ADDRESS ?? '',
+    portfolioUrl: env.OUTREACH_SENDER_PORTFOLIO_URL ?? '',
+    unsubscribeUrl: env.OUTREACH_UNSUBSCRIBE_URL ?? '',
+  };
 }

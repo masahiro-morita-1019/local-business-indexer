@@ -88,6 +88,33 @@ pnpm indexer discover --area "町田市" --category "塗装業" --limit 20 --dry
 
 検索結果は `WebsiteClass = none / sns_only / has_website` を問わず **全件 Notion に保存** される。営業対象は後段の Notion ビューでフィルタする。
 
+### Phase 4-B: 電話スクリプト生成
+
+`OutreachPriority = 高/中` かつ `WebsiteClass ∈ {none, sns_only}` の企業向けに、Claude API で電話営業スクリプトを生成して Notion に保存する。
+
+```bash
+pnpm indexer draft-call-scripts --limit 10
+```
+
+| オプション | 説明 |
+|---|---|
+| `--limit, -l` | 最大処理件数(デフォルト 20) |
+| `--concurrency, -p` | 並列度(1〜10、デフォルト 3) |
+| `--dry-run` | Notion 書き込みをスキップ(生成のみ) |
+
+事前準備:
+- `.env` に `ANTHROPIC_API_KEY` を設定
+- `.env` に差出人情報(`OUTREACH_SENDER_NAME` 等)を設定。屋号未登録なら個人名で OK
+- `pnpm migrate:notion` で `CallScript` / `CallScriptGeneratedAt` プロパティを追加
+
+スクリプトの構成(自動生成される4セクション):
+1. **導入** — 名乗り + 営業目的明示(特商法電話勧誘規制対応)
+2. **価値訴求** — Google評価/レビュー数/HP状態に応じたパーソナライズ
+3. **反論対応** — 「困ってない」「コスト」「時間ない」への切り返し
+4. **クロージング** — サンプルHP提示の二段構え提案 + 引き際明示(再勧誘禁止対応)
+
+使用モデル: **Claude Opus 4.7** (`claude-opus-4-7`)。1社あたり推定 $0.02。
+
 ### Phase 1.5: コンタクトスクレイパー
 
 `has_website` の企業のHPからメアド/問い合わせフォームを抽出して Notion に追記する。

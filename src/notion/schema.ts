@@ -37,6 +37,9 @@ export const PROPERTIES = {
   OutreachPriority: 'OutreachPriority',
   OutreachScore: 'OutreachScore',
   OutreachReasons: 'OutreachReasons',
+  // Phase 4-B: 電話スクリプト
+  CallScript: 'CallScript',
+  CallScriptGeneratedAt: 'CallScriptGeneratedAt',
 } as const;
 
 export const STATUS_OPTIONS = [
@@ -113,4 +116,6 @@ export const databaseProperties: CreateDatabaseParameters['properties'] = {
   },
   [PROPERTIES.OutreachScore]: { number: { format: 'number' } },
   [PROPERTIES.OutreachReasons]: { rich_text: {} },
+  [PROPERTIES.CallScript]: { rich_text: {} },
+  [PROPERTIES.CallScriptGeneratedAt]: { date: {} },
 };
