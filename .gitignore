@@ -7,3 +7,8 @@ dist
 coverage
 .vscode
 .idea
+
+# Generated outputs from CLI (e.g. `pnpm indexer ... --print-prompts > prompts.md`)
+/prompts.md
+/prompts*.md
+/output/
