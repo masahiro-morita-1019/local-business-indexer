@@ -33,30 +33,32 @@ export async function queryCallScriptCandidates(
 
   while (out.length < limit) {
     const remaining = limit - out.length;
-    const res = await client.databases.query({
-      database_id: databaseId,
-      filter: {
-        and: [
-          {
-            or: [
-              { property: PROPERTIES.OutreachPriority, select: { equals: '高' } },
-              { property: PROPERTIES.OutreachPriority, select: { equals: '中' } },
-            ],
-          },
-          {
-            or: [
-              { property: PROPERTIES.WebsiteClass, select: { equals: 'none' } },
-              { property: PROPERTIES.WebsiteClass, select: { equals: 'sns_only' } },
-            ],
-          },
-          { property: PROPERTIES.Phone, phone_number: { is_not_empty: true } },
-          { property: PROPERTIES.CallScript, rich_text: { is_empty: true } },
-        ],
-      },
-      sorts: [{ property: PROPERTIES.OutreachScore, direction: 'descending' }],
-      page_size: Math.min(100, remaining),
-      ...(cursor !== undefined ? { start_cursor: cursor } : {}),
-    });
+    const res = await callWithMigrationHint(() =>
+      client.databases.query({
+        database_id: databaseId,
+        filter: {
+          and: [
+            {
+              or: [
+                { property: PROPERTIES.OutreachPriority, select: { equals: '高' } },
+                { property: PROPERTIES.OutreachPriority, select: { equals: '中' } },
+              ],
+            },
+            {
+              or: [
+                { property: PROPERTIES.WebsiteClass, select: { equals: 'none' } },
+                { property: PROPERTIES.WebsiteClass, select: { equals: 'sns_only' } },
+              ],
+            },
+            { property: PROPERTIES.Phone, phone_number: { is_not_empty: true } },
+            { property: PROPERTIES.CallScript, rich_text: { is_empty: true } },
+          ],
+        },
+        sorts: [{ property: PROPERTIES.OutreachScore, direction: 'descending' }],
+        page_size: Math.min(100, remaining),
+        ...(cursor !== undefined ? { start_cursor: cursor } : {}),
+      }),
+    );
 
     for (const page of res.results) {
       if (!('properties' in page)) continue;
@@ -71,6 +73,38 @@ export async function queryCallScriptCandidates(
   }
 
   return out;
+}
+
+/**
+ * Notion API 呼び出しで「プロパティが存在しない」エラーが出たとき、
+ * マイグレーション手順を示した親切なエラーに置き換える。
+ * (Phase 4-B 以降の新プロパティを既存DBに追加し忘れた場合の対処)
+ */
+async function callWithMigrationHint<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (
+      err &&
+      typeof err === 'object' &&
+      'code' in err &&
+      (err as { code: unknown }).code === 'validation_error' &&
+      'message' in err &&
+      typeof (err as { message: unknown }).message === 'string' &&
+      /Could not find property/i.test((err as { message: string }).message)
+    ) {
+      const original = (err as { message: string }).message;
+      throw new Error(
+        [
+          `Notion DB に必要なプロパティが存在しません: ${original}`,
+          '',
+          '`pnpm migrate:notion` を実行して、schema.ts に追加された新プロパティを既存DBに反映してください。',
+          '(idempotent なので既存プロパティには影響しません)',
+        ].join('\n'),
+      );
+    }
+    throw err;
+  }
 }
 
 function extractCandidate(p: PageObjectResponse): CallScriptCandidate | null {
