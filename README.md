@@ -90,7 +90,20 @@ pnpm indexer discover --area "町田市" --category "塗装業" --limit 20 --dry
 
 ### Phase 4-B: 電話スクリプト生成
 
-`OutreachPriority = 高/中` かつ `WebsiteClass ∈ {none, sns_only}` の企業向けに、電話営業スクリプトを生成する。**2つの運用モードを用意**:
+`OutreachPriority = 高/中` かつ `WebsiteClass ∈ {none, sns_only}` の企業向けに、電話営業スクリプトを生成する。
+
+#### 設計の前提: Show, Don't Tell 型
+
+生成されるスクリプトは **「サンプルHPを既に作ったので見てください」型** で構成される。
+従来の「ご提案させてください」型(=アポ取り)ではない。
+
+→ **電話する前に、相手企業向けの簡易サンプルHPを1ページ作っておく必要がある**。
+電話のゴールは「メールでサンプルURLを送る了承を取ること」。
+
+スタンス・装備は `.env` の `OUTREACH_PITCH_CONTEXT` で自由文として上書き可能。
+未設定時はデフォルト(サンプルHP準備済み前提)が使われる。
+
+**運用モード**:
 
 #### モード A: 手動運用(`--print-prompts`)
 

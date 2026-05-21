@@ -10,6 +10,7 @@ const TEST_SENDER: SenderIdentity = {
   address: '',
   portfolioUrl: 'https://yamada.example.com',
   unsubscribeUrl: '',
+  pitchContext: 'テスト用の装備説明: 既にサンプルを作っている。',
 };
 
 describe('buildSystemPrompt', () => {
@@ -43,14 +44,28 @@ describe('buildSystemPrompt', () => {
     expect(sys).toContain('## クロージング');
   });
 
-  it('mentions 特定商取引法 (regulatory awareness)', () => {
+  it('mentions 特定商取引法 / 特商法 (regulatory awareness)', () => {
     const sys = buildSystemPrompt(TEST_SENDER);
-    expect(sys).toContain('特定商取引法');
+    expect(sys.includes('特定商取引法') || sys.includes('特商法')).toBe(true);
   });
 
   it('mentions 再勧誘禁止 / 引き際 (no-pushy-sales)', () => {
     const sys = buildSystemPrompt(TEST_SENDER);
     expect(sys.includes('再勧誘禁止') || sys.includes('これ以上のご連絡')).toBe(true);
+  });
+
+  it("embeds pitchContext verbatim (Show-Don't-Tell framing)", () => {
+    const sys = buildSystemPrompt(TEST_SENDER);
+    expect(sys).toContain('テスト用の装備説明: 既にサンプルを作っている。');
+  });
+
+  it("uses Show-Don't-Tell framing (not pure appointment-setting)", () => {
+    const sys = buildSystemPrompt(TEST_SENDER);
+    expect(sys).toContain("Show, Don't Tell");
+    expect(sys).toContain('貴社向けのサンプルサイトを既に作りました');
+    expect(sys).toContain('メールでサンプルURL送付の了承を取る');
+    // 旧来の「アポ取り」型ではないことを確認
+    expect(sys).toContain('アポ(対面・Zoom)を取りに行かない');
   });
 });
 

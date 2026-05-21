@@ -11,6 +11,7 @@ const SENDER: SenderIdentity = {
   address: '',
   portfolioUrl: 'https://yamada.example.com',
   unsubscribeUrl: '',
+  pitchContext: 'テスト用ピッチコンテキスト',
 };
 
 function mockClient(textResponse: string): Anthropic {

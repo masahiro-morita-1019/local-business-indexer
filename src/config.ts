@@ -15,6 +15,12 @@ const envSchema = z.object({
   OUTREACH_SENDER_ADDRESS: z.string().optional(),
   OUTREACH_SENDER_PORTFOLIO_URL: z.string().optional(),
   OUTREACH_UNSUBSCRIBE_URL: z.string().optional(),
+  /**
+   * 営業時の「装備・スタンス」を自由文で記述する。
+   * Show-Don't-Tell 型(=「サンプル作ったので見てください」前提)の文面生成のため。
+   * 未設定時はデフォルト文(下記 DEFAULT_PITCH_CONTEXT)が使われる。
+   */
+  OUTREACH_PITCH_CONTEXT: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -74,7 +80,25 @@ export interface SenderIdentity {
   address: string;
   portfolioUrl: string;
   unsubscribeUrl: string;
+  /**
+   * 営業時の「装備・スタンス」。Show-Don't-Tell 型のスクリプト/文面生成のための前提条件。
+   * 例: 「電話前にサンプルHPを作成済み。電話の目的は URL 送付の了承を取ること。」
+   */
+  pitchContext: string;
 }
+
+/**
+ * OUTREACH_PITCH_CONTEXT 未設定時のデフォルト。
+ * 「電話前に貴社向けサンプルHPを準備済み」を前提にした Show-Don't-Tell 型の構え。
+ * 自分の運用が違う場合は .env で上書きする。
+ */
+export const DEFAULT_PITCH_CONTEXT = [
+  '電話前に、相手企業向けの簡易なサンプルHP(プレビュー版)を1ページ作成済みである。',
+  '電話の目的は「メールでプレビューURLを送る了承を取ること」。',
+  'サンプルが気に入った場合のみ有料の正式版を制作する低リスク提案。',
+  '気に入らなければそれで終了で問題ない、というスタンス(押し売り絶対しない)。',
+  'ポートフォリオサイトと併せて「実在する制作者である証拠」を提示できる。',
+].join('\n');
 
 export function getSenderIdentity(env: Env): SenderIdentity {
   return {
@@ -85,5 +109,6 @@ export function getSenderIdentity(env: Env): SenderIdentity {
     address: env.OUTREACH_SENDER_ADDRESS ?? '',
     portfolioUrl: env.OUTREACH_SENDER_PORTFOLIO_URL ?? '',
     unsubscribeUrl: env.OUTREACH_UNSUBSCRIBE_URL ?? '',
+    pitchContext: env.OUTREACH_PITCH_CONTEXT ?? DEFAULT_PITCH_CONTEXT,
   };
 }
