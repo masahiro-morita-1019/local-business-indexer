@@ -90,7 +90,23 @@ pnpm indexer discover --area "町田市" --category "塗装業" --limit 20 --dry
 
 ### Phase 4-B: 電話スクリプト生成
 
-`OutreachPriority = 高/中` かつ `WebsiteClass ∈ {none, sns_only}` の企業向けに、Claude API で電話営業スクリプトを生成して Notion に保存する。
+`OutreachPriority = 高/中` かつ `WebsiteClass ∈ {none, sns_only}` の企業向けに、電話営業スクリプトを生成する。**2つの運用モードを用意**:
+
+#### モード A: 手動運用(`--print-prompts`)
+
+Claude.ai に貼り付ける用のプロンプト集を Markdown で出力。**API キー不要・課金なし**。プロンプトチューニング期や少量(10件以下)の運用に向く。
+
+```bash
+pnpm indexer draft-call-scripts --limit 10 --print-prompts > prompts.md
+```
+
+`prompts.md` を開いて Claude.ai にコピペ → 生成されたスクリプトを Notion DB の `CallScript` 列に手で貼り戻す運用。
+
+事前準備: `OUTREACH_SENDER_NAME` 等の差出人情報のみ設定すれば OK(`ANTHROPIC_API_KEY` 不要)。
+
+#### モード B: 完全自動(Anthropic API 経由)
+
+Claude API で生成 → Notion に自動書き戻し。
 
 ```bash
 pnpm indexer draft-call-scripts --limit 10
@@ -101,11 +117,14 @@ pnpm indexer draft-call-scripts --limit 10
 | `--limit, -l` | 最大処理件数(デフォルト 20) |
 | `--concurrency, -p` | 並列度(1〜10、デフォルト 3) |
 | `--dry-run` | Notion 書き込みをスキップ(生成のみ) |
+| `--print-prompts` | API を叩かず、Claude.ai 貼付用 Markdown を stdout 出力 |
 
 事前準備:
-- `.env` に `ANTHROPIC_API_KEY` を設定
+- `.env` に `ANTHROPIC_API_KEY` を設定(モード B のみ必要)
 - `.env` に差出人情報(`OUTREACH_SENDER_NAME` 等)を設定。屋号未登録なら個人名で OK
 - `pnpm migrate:notion` で `CallScript` / `CallScriptGeneratedAt` プロパティを追加
+
+**推奨フロー**: まず `--print-prompts` で 2-3 件試して文面を確認・プロンプト調整 → 固まったら `--print-prompts` なしの自動モードに切り替え。
 
 スクリプトの構成(自動生成される4セクション):
 1. **導入** — 名乗り + 営業目的明示(特商法電話勧誘規制対応)

@@ -92,27 +92,44 @@ program
   .option('-l, --limit <n>', '最大処理件数', (v) => Number.parseInt(v, 10), 20)
   .option('-p, --concurrency <n>', '並列度', (v) => Number.parseInt(v, 10), 3)
   .option('--dry-run', 'Notion に書き込まず、結果のみ表示', false)
-  .action(async (opts: { limit: number; concurrency: number; dryRun: boolean }) => {
-    try {
-      const summary = await runDraftCallScripts({
-        limit: Math.max(1, opts.limit),
-        concurrency: Math.max(1, Math.min(10, opts.concurrency)),
-        dryRun: opts.dryRun,
-      });
-      console.log('\n=== サマリ ===');
-      console.log(`対象候補         : ${summary.candidates}`);
-      console.log(`生成成功         : ${summary.generated}`);
-      console.log(`エラー           : ${summary.errors}`);
-      console.log(`入力トークン合計 : ${summary.totalInputTokens}`);
-      console.log(`出力トークン合計 : ${summary.totalOutputTokens}`);
-      console.log(`キャッシュヒット : ${summary.totalCacheReadTokens}`);
-      console.log(`推定コスト       : $${summary.estimatedCostUsd.toFixed(4)}`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`\n[cli] 実行エラー: ${msg}`);
-      process.exit(1);
-    }
-  });
+  .option(
+    '--print-prompts',
+    'Anthropic API を叩かず、Claude.ai 貼り付け用の Markdown を stdout に出力(手動運用モード、API キー不要)',
+    false,
+  )
+  .action(
+    async (opts: {
+      limit: number;
+      concurrency: number;
+      dryRun: boolean;
+      printPrompts: boolean;
+    }) => {
+      try {
+        const summary = await runDraftCallScripts({
+          limit: Math.max(1, opts.limit),
+          concurrency: Math.max(1, Math.min(10, opts.concurrency)),
+          dryRun: opts.dryRun,
+          printPrompts: opts.printPrompts,
+        });
+        // --print-prompts のときは stdout は純粋なプロンプト集なので、サマリは stderr に出す
+        const out = opts.printPrompts ? console.error : console.log;
+        out('\n=== サマリ ===');
+        out(`対象候補         : ${summary.candidates}`);
+        if (!opts.printPrompts) {
+          out(`生成成功         : ${summary.generated}`);
+          out(`エラー           : ${summary.errors}`);
+          out(`入力トークン合計 : ${summary.totalInputTokens}`);
+          out(`出力トークン合計 : ${summary.totalOutputTokens}`);
+          out(`キャッシュヒット : ${summary.totalCacheReadTokens}`);
+          out(`推定コスト       : $${summary.estimatedCostUsd.toFixed(4)}`);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`\n[cli] 実行エラー: ${msg}`);
+        process.exit(1);
+      }
+    },
+  );
 
 program.parseAsync().catch((err) => {
   console.error(err);
