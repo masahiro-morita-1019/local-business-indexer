@@ -16,6 +16,9 @@
 | `ChainName` | Rich text | チェーン名(マッチした場合のみ) | 同上 |
 | `UsesHttps` | Checkbox | Webサイトが `https://` で運用されているか | `src/discovery/classify/https.ts` |
 | `LegalForm` | Select | 法人格(株/有/合同/NPO/…/不明) | `src/discovery/classify/legalForm.ts` |
+| `OutreachPriority` | Select | 営業優先度の3段階ラベル(高/中/低/除外) | `src/discovery/classify/priority.ts` |
+| `OutreachScore` | Number | 加点ルールから計算した数値スコア | 同上 |
+| `OutreachReasons` | Rich text | スコアに加算されたルール名一覧(監査用) | 同上 |
 
 ---
 
@@ -173,17 +176,69 @@
 
 ---
 
+## 5. OutreachPriority — 営業優先度スコア
+
+### なぜ判定するか
+営業対象は「★3.5-4.2 + レビュー20件以上 + HP無し/古い」が最も売れる(=客がついている裏付け × 改善余地大の組み合わせ)。これを **数値スコア** に落とし込んで、Notion でソート・フィルタできるようにする。
+
+### スコア計算ルール
+
+| ルール | 加減点 | 補足 |
+|---|---|---|
+| 大手チェーン除外 | **-1000** | `IsChainStore=true` で即除外確定 |
+| レビュー数 >= 20 | **+30** | 顧客がついている裏付け |
+| レビュー数 10-19 | +15 | 中程度の実績 |
+| rating 3.5-4.2 | **+20** | 「顧客を失っている可能性」シグナル |
+| rating >= 4.5 | +15 | 品質高、HP次第で伸びる |
+| WebsiteClass=none(HP無し) | **+30** | コア訴求対象 |
+| WebsiteClass=sns_only | +20 | 簡易LP/SNSのみ |
+| has_website + UsesHttps=false | +25 | 「HPはあるが古い」訴求 |
+
+### ラベル変換(閾値)
+
+| 範囲 | ラベル | 営業判断 |
+|---|---|---|
+| `score < 0` | **除外** | 大手チェーン等、営業対象外 |
+| `score >= 50` | **高** | 最優先で当てる(着手から) |
+| `30 <= score < 50` | **中** | 次のロット |
+| `score < 30` | **低** | 余力があれば |
+
+### 出力例
+
+| 入力 | スコア計算 | ラベル |
+|---|---|---|
+| 評価★3.8、レビュー40件、HP無し | 30(reviews) + 20(rating) + 30(none) = 80 | **高** |
+| 評価★4.0、レビュー25件、HP有り(http) | 30 + 20(?) + 25 = ※ratingが範囲外なら 30 + 25 = 55 | **高** |
+| 評価★4.6、レビュー12件、SNSのみ | 15(reviews) + 15(rating) + 20(sns_only) = 50 | **高** |
+| 評価★4.5、レビュー2件、HP有り(https) | 15(rating) = 15 | **低** |
+| 大手チェーン | -1000 | **除外** |
+
+### 追跡可能性
+
+`OutreachReasons` に「どのルールが加点に貢献したか」が文字列で残るので、優先度の根拠は常に Notion で確認できる。
+
+### ルール変更箇所
+`src/discovery/classify/priority.ts` の `PRIORITY_RULES` と `PRIORITY_THRESHOLDS`。
+
+---
+
 ## 営業対象の絞り込み(Notion ビュー側の運用)
 
 判定フラグが出揃った後、Notion DB を以下のフィルタで使い分ける。
 
+### 推奨ソート順
+
+すべてのビューで **`OutreachScore` 降順** を第一ソートにする。優先度高から着手できる。
+
+### チャネル別フィルタ
+
 | 営業チャネル | フィルタ条件 |
 |---|---|
-| **D: メール(高優先)** | `WebsiteClass = has_website` AND `IsChainStore = false` AND `UsesHttps = false` AND `Email` あり |
-| **D: メール(通常)** | `WebsiteClass = has_website` AND `IsChainStore = false` AND `Email` あり |
-| **B: 電話** | `WebsiteClass ∈ {none, sns_only}` AND `IsChainStore = false` AND `Phone` あり |
-| **A: 郵送DM** | `WebsiteClass ∈ {none, sns_only}` AND `IsChainStore = false` AND `Address` あり |
-| **要レビュー** | `IsChainStore = true`(自動除外候補。一応目視で確認) |
+| **D: メール(最優先)** | `OutreachPriority = 高` AND `WebsiteClass = has_website` AND `Email` あり |
+| **D: メール(通常)** | `OutreachPriority ∈ {高, 中}` AND `WebsiteClass = has_website` AND `Email` あり |
+| **B: 電話** | `OutreachPriority ∈ {高, 中}` AND `WebsiteClass ∈ {none, sns_only}` AND `Phone` あり |
+| **A: 郵送DM** | `OutreachPriority ∈ {高, 中}` AND `WebsiteClass ∈ {none, sns_only}` AND `Address` あり |
+| **要レビュー** | `OutreachPriority = 除外`(自動除外候補。一応目視で確認) |
 
 ---
 

@@ -33,6 +33,9 @@ export const PROPERTIES = {
   ChainName: 'ChainName',
   UsesHttps: 'UsesHttps',
   LegalForm: 'LegalForm',
+  OutreachPriority: 'OutreachPriority',
+  OutreachScore: 'OutreachScore',
+  OutreachReasons: 'OutreachReasons',
 } as const;
 
 export const STATUS_OPTIONS = [
@@ -59,6 +62,8 @@ export const LEGAL_FORM_OPTIONS = [
   '医療法人',
   '不明',
 ] as const;
+
+export const OUTREACH_PRIORITY_OPTIONS = ['高', '中', '低', '除外'] as const;
 
 export const databaseProperties: CreateDatabaseParameters['properties'] = {
   [PROPERTIES.Name]: { title: {} },
@@ -99,4 +104,11 @@ export const databaseProperties: CreateDatabaseParameters['properties'] = {
       options: LEGAL_FORM_OPTIONS.map((name) => ({ name })),
     },
   },
+  [PROPERTIES.OutreachPriority]: {
+    select: {
+      options: OUTREACH_PRIORITY_OPTIONS.map((name) => ({ name })),
+    },
+  },
+  [PROPERTIES.OutreachScore]: { number: { format: 'number' } },
+  [PROPERTIES.OutreachReasons]: { rich_text: {} },
 };

@@ -3,6 +3,11 @@ import { loadEnv, requireDatabaseId } from '../config.ts';
 import { type ChainDetection, detectChainStore } from '../discovery/classify/chainStore.ts';
 import { type HttpsDetection, detectHttps } from '../discovery/classify/https.ts';
 import { type LegalFormDetection, detectLegalForm } from '../discovery/classify/legalForm.ts';
+import {
+  type PriorityResult,
+  buildPriorityInput,
+  scorePriority,
+} from '../discovery/classify/priority.ts';
 import { type Classification, classifyWebsite } from '../discovery/filter/noWebsite.ts';
 import { PlacesClient } from '../discovery/places/client.ts';
 import { searchPlaces } from '../discovery/places/searchText.ts';
@@ -22,6 +27,7 @@ export interface DiscoverSummary {
   byClass: Record<'none' | 'sns_only' | 'has_website', number>;
   chainStores: number;
   httpOnly: number;
+  byPriority: Record<'高' | '中' | '低' | '除外', number>;
   created: number;
   updated: number;
   skipped: number;
@@ -38,20 +44,29 @@ export async function runDiscover(params: DiscoverParams): Promise<DiscoverSumma
 
   const classified = places.map((p) => {
     const name = p.displayName?.text ?? '(名称不明)';
-    return {
-      place: p,
-      classification: classifyWebsite(p.websiteUri),
-      chain: detectChainStore(name, p.websiteUri),
-      https: detectHttps(p.websiteUri),
-      legalForm: detectLegalForm(name),
-    };
+    const classification = classifyWebsite(p.websiteUri);
+    const chain = detectChainStore(name, p.websiteUri);
+    const https = detectHttps(p.websiteUri);
+    const legalForm = detectLegalForm(name);
+    const priority = scorePriority(
+      buildPriorityInput({
+        classification,
+        chain,
+        https,
+        rating: p.rating,
+        reviewCount: p.userRatingCount,
+      }),
+    );
+    return { place: p, classification, chain, https, legalForm, priority };
   });
 
   const byClass = { none: 0, sns_only: 0, has_website: 0 };
+  const byPriority = { 高: 0, 中: 0, 低: 0, 除外: 0 };
   let chainStores = 0;
   let httpOnly = 0;
   for (const c of classified) {
     byClass[c.classification.class]++;
+    byPriority[c.priority.label]++;
     if (c.chain.isChain) chainStores++;
     if (c.https.uses === false) httpOnly++;
   }
@@ -60,6 +75,9 @@ export async function runDiscover(params: DiscoverParams): Promise<DiscoverSumma
     `[discover] 分類結果: none=${byClass.none}, sns_only=${byClass.sns_only}, has_website=${byClass.has_website}`,
   );
   console.log(`[discover] 大手チェーン: ${chainStores} 件 / HTTPなし(SSL未対応): ${httpOnly} 件`);
+  console.log(
+    `[discover] 営業優先度: 高=${byPriority.高} 中=${byPriority.中} 低=${byPriority.低} 除外=${byPriority.除外}`,
+  );
 
   // A+B+D方針: has_website も Phase 1.5(コンタクトスクレイパー)の対象なので全件保存。
   // 営業フェーズではチャネル別に Notion 側でフィルタする (WebsiteClass で絞り込み)。
@@ -72,6 +90,7 @@ export async function runDiscover(params: DiscoverParams): Promise<DiscoverSumma
       byClass,
       chainStores,
       httpOnly,
+      byPriority,
       created: 0,
       updated: 0,
       skipped: 0,
@@ -95,6 +114,7 @@ export async function runDiscover(params: DiscoverParams): Promise<DiscoverSumma
           t.chain,
           t.https,
           t.legalForm,
+          t.priority,
           params,
         );
         try {
@@ -116,6 +136,7 @@ export async function runDiscover(params: DiscoverParams): Promise<DiscoverSumma
     byClass,
     chainStores,
     httpOnly,
+    byPriority,
     created,
     updated,
     skipped: 0,
@@ -128,6 +149,7 @@ function toBusinessRecord(
   chain: ChainDetection,
   https: HttpsDetection,
   legalForm: LegalFormDetection,
+  priority: PriorityResult,
   params: DiscoverParams,
 ): BusinessRecord {
   return {
@@ -149,5 +171,8 @@ function toBusinessRecord(
     chainName: chain.chainName,
     usesHttps: https.uses,
     legalForm: legalForm.form,
+    outreachPriority: priority.label,
+    outreachScore: priority.score,
+    outreachReasons: priority.reasons.join(' / '),
   };
 }

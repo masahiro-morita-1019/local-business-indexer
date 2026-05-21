@@ -39,6 +39,9 @@ program
       console.log(`  - HPあり       : ${summary.byClass.has_website}`);
       console.log(`大手チェーン店   : ${summary.chainStores} (営業対象外フラグ済)`);
       console.log(`HTTP only (古HP) : ${summary.httpOnly}`);
+      console.log(
+        `優先度           : 高=${summary.byPriority.高} / 中=${summary.byPriority.中} / 低=${summary.byPriority.低} / 除外=${summary.byPriority.除外}`,
+      );
       if (!opts.dryRun) {
         console.log(`Notion 新規追加  : ${summary.created}`);
         console.log(`Notion 更新      : ${summary.updated}`);

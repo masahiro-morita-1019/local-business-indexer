@@ -1,6 +1,7 @@
 import type { Client } from '@notionhq/client';
 import type { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints.js';
 import type { LegalForm } from '../discovery/classify/legalForm.ts';
+import type { PriorityLabel } from '../discovery/classify/priority.ts';
 import type { WebsiteClass } from '../discovery/filter/noWebsite.ts';
 import { PROPERTIES } from './schema.ts';
 
@@ -24,6 +25,9 @@ export interface BusinessRecord {
   chainName?: string | undefined;
   usesHttps?: boolean | undefined;
   legalForm: LegalForm;
+  outreachPriority: PriorityLabel;
+  outreachScore: number;
+  outreachReasons: string;
 }
 
 export type UpsertOutcome = 'created' | 'updated';
@@ -55,6 +59,9 @@ export async function upsertBusiness(
     [PROPERTIES.ChainName]: richTextProp(record.chainName),
     [PROPERTIES.UsesHttps]: { checkbox: record.usesHttps ?? false },
     [PROPERTIES.LegalForm]: selectProp(record.legalForm),
+    [PROPERTIES.OutreachPriority]: selectProp(record.outreachPriority),
+    [PROPERTIES.OutreachScore]: numberProp(record.outreachScore),
+    [PROPERTIES.OutreachReasons]: richTextProp(record.outreachReasons),
   };
 
   if (existing) {
