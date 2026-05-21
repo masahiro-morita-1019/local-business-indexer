@@ -28,6 +28,7 @@ export const PROPERTIES = {
   ContactFormUrl: 'ContactFormUrl',
   ContactExtractedAt: 'ContactExtractedAt',
   ContactExtractionNote: 'ContactExtractionNote',
+  ActualUrl: 'ActualUrl',
   // ターゲット品質改善で追加 (大手チェーン除外 / HTTPS判定 / 法人格判定)
   IsChainStore: 'IsChainStore',
   ChainName: 'ChainName',
@@ -96,6 +97,7 @@ export const databaseProperties: CreateDatabaseParameters['properties'] = {
   [PROPERTIES.ContactFormUrl]: { url: {} },
   [PROPERTIES.ContactExtractedAt]: { date: {} },
   [PROPERTIES.ContactExtractionNote]: { rich_text: {} },
+  [PROPERTIES.ActualUrl]: { url: {} },
   [PROPERTIES.IsChainStore]: { checkbox: {} },
   [PROPERTIES.ChainName]: { rich_text: {} },
   [PROPERTIES.UsesHttps]: { checkbox: {} },

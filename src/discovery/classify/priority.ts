@@ -69,9 +69,13 @@ export const PRIORITY_RULES: readonly PriorityRule[] = [
     test: (i) => i.rating !== undefined && i.rating >= 4.5,
   },
   // HP状態(これがコア)
+  // 重みは「データ不確実性」を加味して控えめにしてある。詳しくは docs/classification-rules.md を参照。
+  // - WebsiteClass=none は Google ビジネスプロフィール非紐付けの可能性込み(=実は HP がある可能性)
+  // - has_website + UsesHttps=false は登録URLが古いだけで実際は https のケースあり
+  //   (Phase 1.5 の実HTTPプローブで上書きされた後は信頼度高)
   {
     name: 'WebsiteClass=none(HP無し)',
-    delta: 30,
+    delta: 20,
     test: (i) => i.websiteClass === 'none',
   },
   {
@@ -80,9 +84,14 @@ export const PRIORITY_RULES: readonly PriorityRule[] = [
     test: (i) => i.websiteClass === 'sns_only',
   },
   {
-    name: 'has_website + UsesHttps=false(古いHP)',
-    delta: 25,
+    name: 'has_website + UsesHttps=false(古いHP / 営業余地あり)',
+    delta: 15,
     test: (i) => i.websiteClass === 'has_website' && i.usesHttps === false,
+  },
+  {
+    name: 'has_website + UsesHttps=true(まともなHPあり、サイト制作営業の見込み薄)',
+    delta: -25,
+    test: (i) => i.websiteClass === 'has_website' && i.usesHttps === true,
   },
 ];
 
@@ -103,8 +112,10 @@ export function scorePriority(input: PriorityInput): PriorityResult {
     }
   }
 
+  // 「除外」は大手チェーンの場合のみに限定する。
+  // スコアが負になるケースは https ペナルティで普通に起きるため、それは「低」扱いで OK。
   let label: PriorityLabel;
-  if (score < 0) label = '除外';
+  if (input.isChainStore) label = '除外';
   else if (score >= PRIORITY_THRESHOLDS.high) label = '高';
   else if (score >= PRIORITY_THRESHOLDS.middle) label = '中';
   else label = '低';

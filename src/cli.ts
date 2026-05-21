@@ -69,11 +69,13 @@ program
         dryRun: opts.dryRun,
       });
       console.log('\n=== サマリ ===');
-      console.log(`対象候補       : ${summary.candidates}`);
-      console.log(`メアド取得     : ${summary.emailFound}`);
-      console.log(`フォームのみ   : ${summary.formOnly}`);
-      console.log(`何も取れず     : ${summary.noContact}`);
-      console.log(`エラー         : ${summary.errors}`);
+      console.log(`対象候補               : ${summary.candidates}`);
+      console.log(`メアド取得             : ${summary.emailFound}`);
+      console.log(`フォームのみ           : ${summary.formOnly}`);
+      console.log(`何も取れず             : ${summary.noContact}`);
+      console.log(`エラー                 : ${summary.errors}`);
+      console.log(`実応答 HTTPS 確認      : ${summary.actualHttpsConfirmed}`);
+      console.log(`GBP=http→実=https の検出: ${summary.httpsUpgradeDetected}(スコア再計算済)`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`\n[cli] 実行エラー: ${msg}`);

@@ -22,9 +22,9 @@ describe('scorePriority', () => {
       rating: 3.8,
       reviewCount: 40,
     });
-    // reviews 30 + rating 20 + websiteClass 30 = 80
+    // reviews 30 + rating 20 + websiteClass(none) 20 = 70
     expect(r.label).toBe('高');
-    expect(r.score).toBe(80);
+    expect(r.score).toBe(70);
   });
 
   it('returns 高 for has_website + http only + reviews 25', () => {
@@ -35,8 +35,9 @@ describe('scorePriority', () => {
       rating: 4.0,
       reviewCount: 25,
     });
-    // reviews 30 + rating 20 + http25 = 75
+    // reviews 30 + rating 20 + http 15 = 65
     expect(r.label).toBe('高');
+    expect(r.score).toBe(65);
   });
 
   it('returns 中 for sns_only + few reviews', () => {
@@ -51,6 +52,19 @@ describe('scorePriority', () => {
     expect(r.label).toBe('高');
   });
 
+  it('penalizes has_website + https + good reviews (proper HP, not target)', () => {
+    const r = scorePriority({
+      websiteClass: 'has_website',
+      isChainStore: false,
+      usesHttps: true,
+      rating: 4.0,
+      reviewCount: 30,
+    });
+    // reviews 30 + rating(3.5-4.2) 20 + https(-25) = 25
+    expect(r.label).toBe('低');
+    expect(r.score).toBe(25);
+  });
+
   it('returns 低 for has_website + few reviews + https + rating 4.5', () => {
     const r = scorePriority({
       websiteClass: 'has_website',
@@ -59,8 +73,9 @@ describe('scorePriority', () => {
       rating: 4.5,
       reviewCount: 2,
     });
-    // rating(>=4.5) 15 = 15
+    // rating(>=4.5) 15 + https(-25) = -10
     expect(r.label).toBe('低');
+    expect(r.score).toBe(-10);
   });
 
   it('handles undefined rating/reviews gracefully', () => {
@@ -71,8 +86,9 @@ describe('scorePriority', () => {
       rating: undefined,
       reviewCount: undefined,
     });
-    // websiteClass(none) 30 = 30
-    expect(r.label).toBe('中');
+    // websiteClass(none) 20 = 20
+    expect(r.label).toBe('低');
+    expect(r.score).toBe(20);
   });
 
   it('reasons list reflects matched rules', () => {
@@ -87,5 +103,19 @@ describe('scorePriority', () => {
     expect(r.reasons.some((s) => s.includes('レビュー数 >= 20'))).toBe(true);
     expect(r.reasons.some((s) => s.includes('rating 3.5-4.2'))).toBe(true);
     expect(r.reasons.some((s) => s.includes('WebsiteClass=none'))).toBe(true);
+  });
+
+  it('does NOT apply https penalty for none / sns_only classes', () => {
+    // none class with no website → usesHttps is undefined, no penalty
+    const r = scorePriority({
+      websiteClass: 'none',
+      isChainStore: false,
+      usesHttps: undefined,
+      rating: 4.0,
+      reviewCount: 30,
+    });
+    // reviews 30 + rating 20 + none 20 = 70 (no https penalty)
+    expect(r.score).toBe(70);
+    expect(r.reasons.some((s) => s.includes('UsesHttps=true'))).toBe(false);
   });
 });

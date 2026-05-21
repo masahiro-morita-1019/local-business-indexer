@@ -17,6 +17,10 @@ export interface ExtractContactsSummary {
   formOnly: number;
   noContact: number;
   errors: number;
+  /** 実応答ベースで HTTPS が確認できたページ数 */
+  actualHttpsConfirmed: number;
+  /** Places API では http:// 登録だったが実応答は https だったページ数(=スコア再計算で下がるケース) */
+  httpsUpgradeDetected: number;
 }
 
 export async function runExtractContacts(
@@ -31,13 +35,23 @@ export async function runExtractContacts(
   console.log(`[extract] ${candidates.length} 件が対象`);
 
   if (candidates.length === 0) {
-    return { candidates: 0, emailFound: 0, formOnly: 0, noContact: 0, errors: 0 };
+    return {
+      candidates: 0,
+      emailFound: 0,
+      formOnly: 0,
+      noContact: 0,
+      errors: 0,
+      actualHttpsConfirmed: 0,
+      httpsUpgradeDetected: 0,
+    };
   }
 
   let emailFound = 0;
   let formOnly = 0;
   let noContact = 0;
   let errors = 0;
+  let actualHttpsConfirmed = 0;
+  let httpsUpgradeDetected = 0;
 
   const limit = pLimit(params.concurrency ?? 3);
 
@@ -55,11 +69,27 @@ export async function runExtractContacts(
           else if (result.contactFormUrl) formOnly++;
           else noContact++;
 
+          if (result.actualHttps === true) actualHttpsConfirmed++;
+          // Places API は http:// で登録されていたが実応答が https → スコア再計算の対象
+          if (result.actualHttps === true && c.website.startsWith('http://')) {
+            httpsUpgradeDetected++;
+            console.log('[extract]   ↳ HTTPS upgrade 検出 (GBP: http → 実: https)');
+          }
+
           if (!params.dryRun) {
             await updateContact(notion, c.pageId, {
               email: result.email,
               contactFormUrl: result.contactFormUrl,
               note: result.note,
+              actualUrl: result.actualFinalUrl,
+              actualHttps: result.actualHttps,
+              recomputePriority: {
+                name: c.name,
+                websiteClass: c.websiteClass,
+                rating: c.rating,
+                reviewCount: c.reviewCount,
+                websiteForChainCheck: c.website,
+              },
             });
           }
         } catch (err) {
@@ -77,5 +107,7 @@ export async function runExtractContacts(
     formOnly,
     noContact,
     errors,
+    actualHttpsConfirmed,
+    httpsUpgradeDetected,
   };
 }

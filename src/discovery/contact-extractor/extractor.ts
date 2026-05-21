@@ -8,6 +8,18 @@ export interface ExtractResult {
   contactFormUrl: string | undefined;
   note: string;
   visitedPaths: string[];
+  /**
+   * 最初に成功したリクエストの「リダイレクト追跡後の最終URL」。
+   * Places API が古い http:// を登録していても、実サイトが https に
+   * 301 してくる場合はここに https:// の URL が入る。
+   * undefined = どのパスも取れなかった、または URL パース失敗。
+   */
+  actualFinalUrl: string | undefined;
+  /**
+   * 最終URLが https かどうか。actualFinalUrl から導出。
+   * undefined = 判定できず(プローブ失敗等)。
+   */
+  actualHttps: boolean | undefined;
 }
 
 export interface ExtractorOptions {
@@ -51,6 +63,8 @@ export async function extractContacts(
       contactFormUrl: undefined,
       note: `URLパース失敗: ${siteUrl}`,
       visitedPaths: [],
+      actualFinalUrl: undefined,
+      actualHttps: undefined,
     };
   }
 
@@ -61,6 +75,8 @@ export async function extractContacts(
   const visitedPaths: string[] = [];
   const visitedSet = new Set<string>();
   let cloudflareObfuscationSeen = false;
+  let actualFinalUrl: string | undefined;
+  let actualHttps: boolean | undefined;
 
   for (const path of paths) {
     if (visitedSet.has(path)) continue;
@@ -69,9 +85,20 @@ export async function extractContacts(
     if (!robots.isAllowed(path)) continue;
 
     const url = `${origin}${path}`;
-    const html = await fetchHtml(url, fetchImpl, ua, timeoutMs);
-    if (html === null) continue;
+    const fetched = await fetchHtml(url, fetchImpl, ua, timeoutMs);
+    if (fetched === null) continue;
 
+    // 最初に成功したリクエストの最終URLを記録(リダイレクト追跡後の真の応答先)
+    if (actualFinalUrl === undefined) {
+      actualFinalUrl = fetched.finalUrl;
+      try {
+        actualHttps = new URL(fetched.finalUrl).protocol === 'https:';
+      } catch {
+        actualHttps = undefined;
+      }
+    }
+
+    const html = fetched.html;
     visitedPaths.push(path);
 
     const $ = cheerio.load(html);
@@ -143,13 +170,24 @@ export async function extractContacts(
   if (visitedPaths.length === 0) {
     noteParts.push('全パス到達失敗(robots.txt or ネットワークエラー)');
   }
+  if (actualFinalUrl !== undefined && actualFinalUrl !== `${origin}${visitedPaths[0] ?? '/'}`) {
+    noteParts.push(`実応答URL: ${actualFinalUrl}`);
+  }
 
   return {
     email: selection.primary,
     contactFormUrl,
     note: noteParts.join(' / '),
     visitedPaths,
+    actualFinalUrl,
+    actualHttps,
   };
+}
+
+interface FetchedHtml {
+  html: string;
+  /** リダイレクト追跡後の最終URL */
+  finalUrl: string;
 }
 
 async function fetchHtml(
@@ -157,7 +195,7 @@ async function fetchHtml(
   fetchImpl: typeof fetch,
   ua: string,
   timeoutMs: number,
-): Promise<string | null> {
+): Promise<FetchedHtml | null> {
   try {
     const res = await fetchImpl(url, {
       headers: {
@@ -170,7 +208,8 @@ async function fetchHtml(
     if (!res.ok) return null;
     const ct = res.headers.get('content-type') ?? '';
     if (!ct.includes('text/html') && !ct.includes('application/xhtml+xml')) return null;
-    return await res.text();
+    const html = await res.text();
+    return { html, finalUrl: res.url || url };
   } catch {
     return null;
   }

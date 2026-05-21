@@ -1,19 +1,31 @@
 import { describe, expect, it } from 'vitest';
 import { extractContacts } from './extractor.ts';
 
-function makeFetch(
-  routes: Record<string, { status?: number; body?: string; contentType?: string }>,
-): typeof fetch {
+interface MockRoute {
+  status?: number;
+  body?: string;
+  contentType?: string;
+  /** リダイレクト後の最終URL。指定するとレスポンスの url プロパティが上書きされる */
+  finalUrl?: string;
+}
+
+function makeFetch(routes: Record<string, MockRoute>): typeof fetch {
   return (async (input: string | URL | Request, _init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString();
     const route = routes[url];
     if (!route) {
       return new Response('not found', { status: 404 });
     }
-    return new Response(route.body ?? '', {
+    const res = new Response(route.body ?? '', {
       status: route.status ?? 200,
       headers: { 'content-type': route.contentType ?? 'text/html; charset=utf-8' },
     });
+    // レスポンスの url を上書き(リダイレクト追跡後の最終URLを模擬)
+    Object.defineProperty(res, 'url', {
+      value: route.finalUrl ?? url,
+      configurable: true,
+    });
+    return res;
   }) as typeof fetch;
 }
 
@@ -107,5 +119,51 @@ describe('extractContacts', () => {
       paths: ['/'],
     });
     expect(result.note).toContain('Cloudflare');
+  });
+
+  it('captures actualFinalUrl and actualHttps from real response URL', async () => {
+    // 入力は http:// だが、リダイレクト後は https:// になるシナリオ
+    const fetchImpl = makeFetch({
+      'http://www.example.com/robots.txt': { status: 404 },
+      'http://www.example.com/': {
+        body: '<html></html>',
+        finalUrl: 'https://www.example.com/',
+      },
+    });
+    const result = await extractContacts('http://www.example.com', {
+      fetchImpl,
+      perRequestDelayMs: 0,
+      paths: ['/'],
+    });
+    expect(result.actualFinalUrl).toBe('https://www.example.com/');
+    expect(result.actualHttps).toBe(true);
+    expect(result.note).toContain('実応答URL');
+  });
+
+  it('actualHttps=false when site stays on http', async () => {
+    const fetchImpl = makeFetch({
+      'http://example.com/robots.txt': { status: 404 },
+      'http://example.com/': { body: '<html></html>' },
+    });
+    const result = await extractContacts('http://example.com', {
+      fetchImpl,
+      perRequestDelayMs: 0,
+      paths: ['/'],
+    });
+    expect(result.actualHttps).toBe(false);
+    expect(result.actualFinalUrl).toBe('http://example.com/');
+  });
+
+  it('actualHttps=undefined when all paths fail', async () => {
+    const fetchImpl = makeFetch({
+      // 全パス 404
+    });
+    const result = await extractContacts('https://example.com', {
+      fetchImpl,
+      perRequestDelayMs: 0,
+      paths: ['/', '/contact'],
+    });
+    expect(result.actualFinalUrl).toBeUndefined();
+    expect(result.actualHttps).toBeUndefined();
   });
 });

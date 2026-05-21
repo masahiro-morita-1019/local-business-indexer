@@ -190,9 +190,10 @@
 | レビュー数 10-19 | +15 | 中程度の実績 |
 | rating 3.5-4.2 | **+20** | 「顧客を失っている可能性」シグナル |
 | rating >= 4.5 | +15 | 品質高、HP次第で伸びる |
-| WebsiteClass=none(HP無し) | **+30** | コア訴求対象 |
+| WebsiteClass=none(HP無し) | **+20** | コア訴求対象(※GBP非紐付けの可能性込みで控えめ) |
 | WebsiteClass=sns_only | +20 | 簡易LP/SNSのみ |
-| has_website + UsesHttps=false | +25 | 「HPはあるが古い」訴求 |
+| has_website + UsesHttps=false | +15 | 「HPはあるが古い」訴求(※実HTTPプローブ後は信頼度高) |
+| has_website + UsesHttps=true | **-25** | まともなHPあり=サイト制作の見込み薄 |
 
 ### ラベル変換(閾値)
 
@@ -203,14 +204,15 @@
 | `30 <= score < 50` | **中** | 次のロット |
 | `score < 30` | **低** | 余力があれば |
 
-### 出力例
+### 出力例(更新済)
 
 | 入力 | スコア計算 | ラベル |
 |---|---|---|
-| 評価★3.8、レビュー40件、HP無し | 30(reviews) + 20(rating) + 30(none) = 80 | **高** |
-| 評価★4.0、レビュー25件、HP有り(http) | 30 + 20(?) + 25 = ※ratingが範囲外なら 30 + 25 = 55 | **高** |
-| 評価★4.6、レビュー12件、SNSのみ | 15(reviews) + 15(rating) + 20(sns_only) = 50 | **高** |
-| 評価★4.5、レビュー2件、HP有り(https) | 15(rating) = 15 | **低** |
+| 評価★3.8、レビュー40件、HP無し | 30(reviews) + 20(rating) + 20(none) = **70** | **高** |
+| 評価★4.0、レビュー25件、HP有り(http) | 30 + 20 + 15(http) = **65** | **高** |
+| 評価★4.6、レビュー12件、SNSのみ | 15 + 15 + 20(sns_only) = **50** | **高** |
+| 評価★4.0、レビュー30件、HP有り(https) — 立派なHP | 30 + 20 - 25(https) = **25** | **低** |
+| 評価★4.5、レビュー2件、HP有り(https) | 15 - 25 = **-10** | **低** |
 | 大手チェーン | -1000 | **除外** |
 
 ### 追跡可能性
@@ -239,6 +241,46 @@
 | **B: 電話** | `OutreachPriority ∈ {高, 中}` AND `WebsiteClass ∈ {none, sns_only}` AND `Phone` あり |
 | **A: 郵送DM** | `OutreachPriority ∈ {高, 中}` AND `WebsiteClass ∈ {none, sns_only}` AND `Address` あり |
 | **要レビュー** | `OutreachPriority = 除外`(自動除外候補。一応目視で確認) |
+
+---
+
+## ⚠️ データ不確実性について(重要)
+
+スコアの元になっている情報は **Google Places API のメタデータ**(= Google ビジネスプロフィールに登録された値)に依存している。これは「店舗オーナーが登録した値」であり、必ずしも実態を反映していない。実運用で観測された主な乖離パターン:
+
+### A. `WebsiteClass=none` でも実際は HP がある
+
+GBPに登録していないだけ。Web検索すると別ドメインで普通に運営しているケースがある。
+
+例: `株式会社堀江工務店`(WebsiteClass=none)→ 実際は `https://www.kensetumap.com/company/130829/` 経由で存在(ただしこれはポータルなので独自HPかは別問題)。
+
+→ 対策案(将来): Phase 1.6 として「店名 + エリア」で Web検索して実HPを探すステップを追加。今は **OutreachPriority=高 のうち`none` クラスは目視確認することを推奨**。
+
+### B. `UsesHttps=false` でも実際は https に自動リダイレクト
+
+GBPに `http://` で登録、実サイトは `301` で `https://` にリダイレクト、というよくあるパターン。
+
+例: `こなから建築工房`(GBP登録: `http://www.konakarakenchiku.com/`)→ 実応答: `301 → https://www.konakarakenchiku.com/`。
+
+→ **対策済**: Phase 1.5 のコンタクトスクレイパーが実HTTPリクエストを行い、最終URL(リダイレクト後)を取得して `UsesHttps` を上書き、`OutreachPriority`/`Score`/`Reasons` を再計算する。
+- 検出された差分は `ActualUrl` プロパティに保存される
+- `ContactExtractionNote` に「実応答URL: ...」と記録される
+- スコアは `+15 (古HP)` → `-25 (まともなHP)` に更新される(40点の差)
+
+### C. Places API のスコア重みは控えめに
+
+不確実性を加味するため、当初設計より重みを下げてある:
+- `WebsiteClass=none` : 30 → **20**
+- `has_website + UsesHttps=false` : 25 → **15**
+
+→ ただし Phase 1.5 の **実応答ベースの上書き** が走った後は、`has_website + https` のペナルティ `-25` が高い信頼度で適用される。
+
+### 運用上の推奨フロー
+
+1. `pnpm indexer discover` で大量取得(暫定スコア)
+2. `pnpm indexer extract-contacts` で `has_website` 候補の実HTTPプローブ(スコア確定)
+3. Notion ビューを `OutreachScore` 降順 + `OutreachPriority != 除外` でフィルタ
+4. **上位の `WebsiteClass=none` だけは目視確認**(実HPがある可能性)
 
 ---
 
