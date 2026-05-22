@@ -40,6 +40,10 @@ export async function deployToCloudflarePages(args: DeployArgs): Promise<DeployR
     WRANGLER_SEND_METRICS: 'false',
   };
 
+  // Wrangler は git から commit メッセージを自動取得してデプロイメタデータに含めようとする。
+  // 長い・改行入り・特定文字を含むメッセージは Cloudflare Pages API が
+  // "Invalid commit message" (code 8000111) で拒否することがあるため、
+  // 明示的に固定の ASCII メッセージを渡して回避する。
   const wranglerArgs = [
     'wrangler',
     'pages',
@@ -50,6 +54,8 @@ export async function deployToCloudflarePages(args: DeployArgs): Promise<DeployR
     '--branch',
     'main',
     '--commit-dirty=true',
+    '--commit-message',
+    'deploy via local-business-indexer',
   ];
 
   return await new Promise<DeployResult>((resolve, reject) => {
