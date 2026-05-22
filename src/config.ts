@@ -21,6 +21,10 @@ const envSchema = z.object({
    * 未設定時はデフォルト文(下記 DEFAULT_PITCH_CONTEXT)が使われる。
    */
   OUTREACH_PITCH_CONTEXT: z.string().optional(),
+  // Phase 3: Cloudflare Pages デプロイ
+  CLOUDFLARE_API_TOKEN: z.string().optional(),
+  CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
+  CLOUDFLARE_PAGES_PROJECT: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -67,6 +71,37 @@ export function requireAnthropicApiKey(env: Env): string {
     );
   }
   return env.ANTHROPIC_API_KEY;
+}
+
+export interface CloudflareConfig {
+  apiToken: string;
+  accountId: string;
+  projectName: string;
+}
+
+export function requireCloudflareConfig(env: Env): CloudflareConfig {
+  const missing: string[] = [];
+  if (!env.CLOUDFLARE_API_TOKEN) missing.push('CLOUDFLARE_API_TOKEN');
+  if (!env.CLOUDFLARE_ACCOUNT_ID) missing.push('CLOUDFLARE_ACCOUNT_ID');
+  if (!env.CLOUDFLARE_PAGES_PROJECT) missing.push('CLOUDFLARE_PAGES_PROJECT');
+  if (missing.length > 0) {
+    throw new Error(
+      [
+        `Cloudflare の環境変数が未設定です: ${missing.join(', ')}`,
+        '  1. https://dash.cloudflare.com/profile/api-tokens で "Cloudflare Pages: Edit" 権限のトークンを発行',
+        '  2. Account ID はダッシュボード右サイドバー or URL から取得',
+        '  3. プロジェクト名は英数とハイフンのみ(初回 deploy 時に自動作成)',
+      ].join('\n'),
+    );
+  }
+  return {
+    // biome-ignore lint/style/noNonNullAssertion: 上で missing チェック済み
+    apiToken: env.CLOUDFLARE_API_TOKEN!,
+    // biome-ignore lint/style/noNonNullAssertion: 上で missing チェック済み
+    accountId: env.CLOUDFLARE_ACCOUNT_ID!,
+    // biome-ignore lint/style/noNonNullAssertion: 上で missing チェック済み
+    projectName: env.CLOUDFLARE_PAGES_PROJECT!,
+  };
 }
 
 /**

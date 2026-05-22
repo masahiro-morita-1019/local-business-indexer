@@ -1,0 +1,83 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+}
+const { title, description } = Astro.props;
+---
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="robots" content="noindex,nofollow" />
+    {description && <meta name="description" content={description} />}
+    <title>{title}</title>
+    <style is:global>
+      :root {
+        --c-bg: #fbfaf7;
+        --c-text: #1d1d1f;
+        --c-muted: #6b6b73;
+        --c-accent: #1f5f9b;
+        --c-accent-fg: #ffffff;
+        --c-border: #e5e3dd;
+        --c-card: #ffffff;
+        --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.06);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--c-bg);
+        color: var(--c-text);
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo',
+          sans-serif;
+        line-height: 1.7;
+      }
+      a {
+        color: var(--c-accent);
+      }
+      .container {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 0 1.25rem;
+      }
+      .btn {
+        display: inline-block;
+        padding: 0.85rem 1.4rem;
+        border-radius: 9999px;
+        background: var(--c-accent);
+        color: var(--c-accent-fg);
+        text-decoration: none;
+        font-weight: 600;
+        box-shadow: var(--shadow-card);
+      }
+      .btn--ghost {
+        background: transparent;
+        color: var(--c-accent);
+        border: 1px solid var(--c-accent);
+        box-shadow: none;
+      }
+      .card {
+        background: var(--c-card);
+        border: 1px solid var(--c-border);
+        border-radius: 12px;
+        padding: 1.25rem 1.5rem;
+        box-shadow: var(--shadow-card);
+      }
+      h1,
+      h2,
+      h3 {
+        line-height: 1.35;
+      }
+    </style>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

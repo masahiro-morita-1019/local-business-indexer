@@ -1,0 +1,60 @@
+---
+import type { Target } from '../data/types.ts';
+
+interface Props {
+  target: Target;
+  catchphrase: string;
+  subCatchphrase: string;
+}
+const { target, catchphrase, subCatchphrase } = Astro.props;
+const telHref = target.phone ? `tel:${target.phone.replace(/-/g, '')}` : null;
+---
+<section class="hero">
+  <div class="container hero__inner">
+    <p class="hero__eyebrow">{target.area}・外壁塗装</p>
+    <h1 class="hero__title">{catchphrase}</h1>
+    <p class="hero__lede">{subCatchphrase}</p>
+    <p class="hero__company">{target.name}</p>
+    <div class="hero__cta">
+      {telHref && (
+        <a class="btn" href={telHref}>
+          📞 {target.phone} に電話する
+        </a>
+      )}
+      <a class="btn btn--ghost" href="#contact">アクセス・営業時間</a>
+    </div>
+  </div>
+</section>
+<style>
+  .hero {
+    background: linear-gradient(180deg, #f3eee2 0%, #fbfaf7 100%);
+    padding: 4.5rem 0 4rem;
+  }
+  .hero__eyebrow {
+    margin: 0 0 0.5rem;
+    color: var(--c-muted);
+    font-size: 0.95rem;
+    letter-spacing: 0.06em;
+  }
+  .hero__title {
+    margin: 0 0 1rem;
+    font-size: clamp(1.9rem, 4vw, 2.6rem);
+    font-weight: 700;
+  }
+  .hero__lede {
+    margin: 0 0 1.5rem;
+    color: var(--c-text);
+    font-size: 1.05rem;
+    max-width: 36em;
+  }
+  .hero__company {
+    margin: 0 0 1.75rem;
+    font-weight: 600;
+    color: var(--c-muted);
+  }
+  .hero__cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+</style>

@@ -23,7 +23,6 @@ export interface BusinessRecord {
   // ターゲット品質改善で追加
   isChainStore: boolean;
   chainName?: string | undefined;
-  usesHttps?: boolean | undefined;
   legalForm: LegalForm;
   outreachPriority: PriorityLabel;
   outreachScore: number;
@@ -57,7 +56,6 @@ export async function upsertBusiness(
     [PROPERTIES.LastCheckedAt]: dateProp(today),
     [PROPERTIES.IsChainStore]: { checkbox: record.isChainStore },
     [PROPERTIES.ChainName]: richTextProp(record.chainName),
-    [PROPERTIES.UsesHttps]: { checkbox: record.usesHttps ?? false },
     [PROPERTIES.LegalForm]: selectProp(record.legalForm),
     [PROPERTIES.OutreachPriority]: selectProp(record.outreachPriority),
     [PROPERTIES.OutreachScore]: numberProp(record.outreachScore),
@@ -87,7 +85,73 @@ export async function upsertBusiness(
   return 'created';
 }
 
-async function findByPlaceId(
+/**
+ * Phase 3 デプロイ後に、対象ページに PreviewUrl と PreviewDeployedAt を書き込む。
+ * Status が「未着手」のときに限り「HP生成済」に上書きする(架電済・送付済 等は尊重)。
+ */
+export async function writePreviewUrl(
+  client: Client,
+  databaseId: string,
+  placeId: string,
+  previewUrl: string,
+): Promise<'updated' | 'not_found'> {
+  const existing = await findByPlaceId(client, databaseId, placeId);
+  if (!existing) return 'not_found';
+
+  const today = new Date().toISOString().slice(0, 10);
+  const currentStatus = readSelectName(existing, PROPERTIES.Status);
+
+  const props: Record<string, unknown> = {
+    [PROPERTIES.PreviewUrl]: { url: previewUrl },
+    [PROPERTIES.PreviewDeployedAt]: { date: { start: today } },
+  };
+  if (currentStatus === '未着手') {
+    props[PROPERTIES.Status] = selectProp('HP生成済');
+  }
+
+  await client.pages.update({
+    page_id: existing.id,
+    properties: props as never,
+  });
+  return 'updated';
+}
+
+/**
+ * 既存ページが has_website に遷移した場合、WebsiteClass を更新する。
+ * Status が「未着手」のときに限り「見送り」に切り替える(営業中ステータスは尊重)。
+ * 何かしら更新されたら true を返す。
+ */
+export async function demoteToHasWebsite(
+  client: Client,
+  existing: PageObjectResponse,
+  args: { websiteUri?: string | undefined; decisionReason: string },
+): Promise<boolean> {
+  const today = new Date().toISOString().slice(0, 10);
+  const currentWebsiteClass = readSelectName(existing, PROPERTIES.WebsiteClass);
+  const currentStatus = readSelectName(existing, PROPERTIES.Status);
+
+  const willTouchStatus = currentStatus === '未着手';
+  const alreadyDemoted = currentWebsiteClass === 'has_website' && !willTouchStatus;
+  if (alreadyDemoted) return false;
+
+  const props: Record<string, unknown> = {
+    [PROPERTIES.WebsiteClass]: selectProp('has_website'),
+    [PROPERTIES.Website]: urlProp(args.websiteUri),
+    [PROPERTIES.DecisionReason]: richTextProp(args.decisionReason),
+    [PROPERTIES.LastCheckedAt]: dateProp(today),
+  };
+  if (willTouchStatus) {
+    props[PROPERTIES.Status] = selectProp('見送り');
+  }
+
+  await client.pages.update({
+    page_id: existing.id,
+    properties: props as never,
+  });
+  return true;
+}
+
+export async function findByPlaceId(
   client: Client,
   databaseId: string,
   placeId: string,
@@ -103,6 +167,12 @@ async function findByPlaceId(
   const first = res.results[0];
   if (!first || !('properties' in first)) return null;
   return first as PageObjectResponse;
+}
+
+function readSelectName(page: PageObjectResponse, propName: string): string | null {
+  const prop = page.properties[propName];
+  if (!prop || prop.type !== 'select') return null;
+  return prop.select?.name ?? null;
 }
 
 // ---- property builders ----

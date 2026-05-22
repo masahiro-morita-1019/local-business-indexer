@@ -1,7 +1,6 @@
 import pLimit from 'p-limit';
 import { loadEnv, requireDatabaseId } from '../config.ts';
 import { type ChainDetection, detectChainStore } from '../discovery/classify/chainStore.ts';
-import { type HttpsDetection, detectHttps } from '../discovery/classify/https.ts';
 import { type LegalFormDetection, detectLegalForm } from '../discovery/classify/legalForm.ts';
 import {
   type PriorityResult,
@@ -13,7 +12,12 @@ import { PlacesClient } from '../discovery/places/client.ts';
 import { searchPlaces } from '../discovery/places/searchText.ts';
 import type { Place } from '../discovery/places/types.ts';
 import { createNotionClient } from '../notion/client.ts';
-import { type BusinessRecord, upsertBusiness } from '../notion/upsert.ts';
+import {
+  type BusinessRecord,
+  demoteToHasWebsite,
+  findByPlaceId,
+  upsertBusiness,
+} from '../notion/upsert.ts';
 
 export interface DiscoverParams {
   area: string;
@@ -26,10 +30,11 @@ export interface DiscoverSummary {
   found: number;
   byClass: Record<'none' | 'sns_only' | 'has_website', number>;
   chainStores: number;
-  httpOnly: number;
   byPriority: Record<'高' | '中' | '低' | '除外', number>;
   created: number;
   updated: number;
+  /** has_website に遷移した既存ページを WebsiteClass=has_website + Status=見送り に更新した件数 */
+  demoted: number;
   skipped: number;
 }
 
@@ -46,42 +51,39 @@ export async function runDiscover(params: DiscoverParams): Promise<DiscoverSumma
     const name = p.displayName?.text ?? '(名称不明)';
     const classification = classifyWebsite(p.websiteUri);
     const chain = detectChainStore(name, p.websiteUri);
-    const https = detectHttps(p.websiteUri);
     const legalForm = detectLegalForm(name);
     const priority = scorePriority(
       buildPriorityInput({
         classification,
         chain,
-        https,
         rating: p.rating,
         reviewCount: p.userRatingCount,
       }),
     );
-    return { place: p, classification, chain, https, legalForm, priority };
+    return { place: p, classification, chain, legalForm, priority };
   });
 
   const byClass = { none: 0, sns_only: 0, has_website: 0 };
   const byPriority = { 高: 0, 中: 0, 低: 0, 除外: 0 };
   let chainStores = 0;
-  let httpOnly = 0;
   for (const c of classified) {
     byClass[c.classification.class]++;
     byPriority[c.priority.label]++;
     if (c.chain.isChain) chainStores++;
-    if (c.https.uses === false) httpOnly++;
   }
 
   console.log(
-    `[discover] 分類結果: none=${byClass.none}, sns_only=${byClass.sns_only}, has_website=${byClass.has_website}`,
+    `[discover] 分類結果: none=${byClass.none}, sns_only=${byClass.sns_only}, has_website=${byClass.has_website} (営業対象外)`,
   );
-  console.log(`[discover] 大手チェーン: ${chainStores} 件 / HTTPなし(SSL未対応): ${httpOnly} 件`);
+  console.log(`[discover] 大手チェーン: ${chainStores} 件`);
   console.log(
     `[discover] 営業優先度: 高=${byPriority.高} 中=${byPriority.中} 低=${byPriority.低} 除外=${byPriority.除外}`,
   );
 
-  // A+B+D方針: has_website も Phase 1.5(コンタクトスクレイパー)の対象なので全件保存。
-  // 営業フェーズではチャネル別に Notion 側でフィルタする (WebsiteClass で絞り込み)。
-  const targets = classified;
+  // D ルート(メール営業 to has_website)廃止により、has_website は新規 upsert しない。
+  // ただし既存ページが has_website に遷移したケースは見落とさないよう、別経路で更新する。
+  const targets = classified.filter((c) => c.classification.class !== 'has_website');
+  const hasWebsiteCandidates = classified.filter((c) => c.classification.class === 'has_website');
 
   if (params.dryRun) {
     console.log('[discover] --dry-run のため Notion 書き込みはスキップ');
@@ -89,10 +91,10 @@ export async function runDiscover(params: DiscoverParams): Promise<DiscoverSumma
       found: places.length,
       byClass,
       chainStores,
-      httpOnly,
       byPriority,
       created: 0,
       updated: 0,
+      demoted: 0,
       skipped: 0,
     };
   }
@@ -104,6 +106,7 @@ export async function runDiscover(params: DiscoverParams): Promise<DiscoverSumma
   const limit = pLimit(2);
   let created = 0;
   let updated = 0;
+  let demoted = 0;
 
   await Promise.all(
     targets.map((t) =>
@@ -112,7 +115,6 @@ export async function runDiscover(params: DiscoverParams): Promise<DiscoverSumma
           t.place,
           t.classification,
           t.chain,
-          t.https,
           t.legalForm,
           t.priority,
           params,
@@ -129,16 +131,40 @@ export async function runDiscover(params: DiscoverParams): Promise<DiscoverSumma
     ),
   );
 
-  console.log(`[discover] Notion: created=${created}, updated=${updated}`);
+  // 既存ページが has_website に遷移した場合は WebsiteClass を更新 + Status が未着手のときだけ見送りに。
+  await Promise.all(
+    hasWebsiteCandidates.map((c) =>
+      limit(async () => {
+        const name = c.place.displayName?.text ?? '(名称不明)';
+        try {
+          const existing = await findByPlaceId(notion, databaseId, c.place.id);
+          if (!existing) return;
+          const changed = await demoteToHasWebsite(notion, existing, {
+            websiteUri: c.place.websiteUri,
+            decisionReason: c.classification.reason,
+          });
+          if (changed) {
+            demoted++;
+            console.log(`[discover] 見送り遷移: ${name} (has_website 化)`);
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`[discover] 遷移失敗 (${c.place.id} ${name}): ${msg}`);
+        }
+      }),
+    ),
+  );
+
+  console.log(`[discover] Notion: created=${created}, updated=${updated}, demoted=${demoted}`);
 
   return {
     found: places.length,
     byClass,
     chainStores,
-    httpOnly,
     byPriority,
     created,
     updated,
+    demoted,
     skipped: 0,
   };
 }
@@ -147,7 +173,6 @@ function toBusinessRecord(
   place: Place,
   classification: Classification,
   chain: ChainDetection,
-  https: HttpsDetection,
   legalForm: LegalFormDetection,
   priority: PriorityResult,
   params: DiscoverParams,
@@ -169,7 +194,6 @@ function toBusinessRecord(
     openingHours: place.regularOpeningHours?.weekdayDescriptions?.join('\n'),
     isChainStore: chain.isChain,
     chainName: chain.chainName,
-    usesHttps: https.uses,
     legalForm: legalForm.form,
     outreachPriority: priority.label,
     outreachScore: priority.score,

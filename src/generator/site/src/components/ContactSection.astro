@@ -1,0 +1,143 @@
+---
+import type { Target } from '../data/types.ts';
+
+interface Props {
+  target: Target;
+  closingNote: string;
+}
+const { target, closingNote } = Astro.props;
+const telHref = target.phone ? `tel:${target.phone.replace(/-/g, '')}` : null;
+const openingLines = target.openingHours
+  ? target.openingHours.split('\n').filter((s) => s.trim().length > 0)
+  : [];
+const ratingDisplay =
+  target.rating != null && target.reviewCount != null && target.reviewCount > 0
+    ? `★${target.rating.toFixed(1)} / Googleレビュー ${target.reviewCount}件`
+    : null;
+---
+<section id="contact" class="contact">
+  <div class="container">
+    <h2 class="section-title">アクセス・お問い合わせ</h2>
+    <p class="contact__note">{closingNote}</p>
+    <div class="contact__grid">
+      <div class="card">
+        <dl class="info">
+          <div class="info__row">
+            <dt>会社名</dt>
+            <dd>{target.name}</dd>
+          </div>
+          {target.address && (
+            <div class="info__row">
+              <dt>所在地</dt>
+              <dd>{target.address}</dd>
+            </div>
+          )}
+          {target.phone && (
+            <div class="info__row">
+              <dt>電話番号</dt>
+              <dd>
+                {telHref ? <a href={telHref}>{target.phone}</a> : target.phone}
+              </dd>
+            </div>
+          )}
+          {openingLines.length > 0 && (
+            <div class="info__row">
+              <dt>営業時間</dt>
+              <dd>
+                <ul class="hours">
+                  {openingLines.map((line) => <li>{line}</li>)}
+                </ul>
+              </dd>
+            </div>
+          )}
+          {ratingDisplay && (
+            <div class="info__row">
+              <dt>口コミ評価</dt>
+              <dd>
+                {ratingDisplay}
+                {target.googleMapsUrl && (
+                  <>
+                    {' '}
+                    <a href={target.googleMapsUrl} target="_blank" rel="noopener">
+                      Google マップで見る ↗
+                    </a>
+                  </>
+                )}
+              </dd>
+            </div>
+          )}
+        </dl>
+        <div class="contact__cta">
+          {telHref && (
+            <a class="btn" href={telHref}>
+              📞 {target.phone} に電話する
+            </a>
+          )}
+          {target.googleMapsUrl && (
+            <a class="btn btn--ghost" href={target.googleMapsUrl} target="_blank" rel="noopener">
+              経路を調べる
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<style>
+  .contact {
+    padding: 3rem 0 4.5rem;
+    background: #f3eee2;
+  }
+  .section-title {
+    font-size: clamp(1.4rem, 3vw, 1.75rem);
+    margin: 0 0 1rem;
+    padding-left: 0.75rem;
+    border-left: 4px solid var(--c-accent);
+  }
+  .contact__note {
+    margin: 0 0 1.5rem;
+    color: var(--c-muted);
+  }
+  .info {
+    margin: 0;
+    display: grid;
+    gap: 0.85rem;
+  }
+  .info__row {
+    display: grid;
+    grid-template-columns: 9rem 1fr;
+    gap: 0.5rem;
+    align-items: start;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px dashed var(--c-border);
+  }
+  .info__row:last-child {
+    border-bottom: none;
+  }
+  .info dt {
+    color: var(--c-muted);
+    font-size: 0.9rem;
+  }
+  .info dd {
+    margin: 0;
+    font-size: 0.98rem;
+  }
+  .hours {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--c-text);
+  }
+  .contact__cta {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  @media (max-width: 520px) {
+    .info__row {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

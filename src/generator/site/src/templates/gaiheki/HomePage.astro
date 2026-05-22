@@ -1,0 +1,123 @@
+---
+import ContactSection from '../../components/ContactSection.astro';
+import Hero from '../../components/Hero.astro';
+import Services from '../../components/Services.astro';
+import type { Target } from '../../data/types.ts';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { defaultGaihekiCopy } from './content.ts';
+
+interface Props {
+  target: Target;
+}
+const { target } = Astro.props;
+const copy = defaultGaihekiCopy;
+const title = `${target.name}|${target.area}の外壁塗装(サンプル)`;
+const description = `${target.area}で外壁塗装を手がける${target.name}のご紹介サイト(サンプル)。`;
+---
+<BaseLayout title={title} description={description}>
+  <header class="topbar">
+    <div class="container topbar__inner">
+      <span class="topbar__brand">{target.name}</span>
+      <span class="topbar__hint">
+        ⚠️ これは外壁塗装サンプルHPです。事実情報は Google マップから取得しており、装飾コピーは汎用のたたき台です。
+      </span>
+    </div>
+  </header>
+  <Hero
+    target={target}
+    catchphrase={copy.catchphrase}
+    subCatchphrase={copy.subCatchphrase}
+  />
+  <Services services={copy.services} whyPoints={copy.whyPoints} />
+  <section class="flow">
+    <div class="container">
+      <h2 class="section-title">ご依頼の流れ</h2>
+      <ol class="flow__list">
+        {copy.flow.map((step) => (
+          <li class="flow__item">
+            <p class="flow__step">{step.step}</p>
+            <p class="flow__desc">{step.description}</p>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+  <ContactSection target={target} closingNote={copy.closingNote} />
+  <footer class="footer">
+    <div class="container footer__inner">
+      <p>{target.name}</p>
+      {target.address && <p class="footer__addr">{target.address}</p>}
+      <p class="footer__note">
+        本サイトは AI を用いたサンプルです。実在企業の情報を含みますが、文言の一部は汎用テンプレートです。
+      </p>
+    </div>
+  </footer>
+</BaseLayout>
+<style>
+  .topbar {
+    background: #1d1d1f;
+    color: #f5f5f4;
+    font-size: 0.85rem;
+    padding: 0.5rem 0;
+  }
+  .topbar__inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .topbar__brand {
+    font-weight: 600;
+  }
+  .topbar__hint {
+    color: #c8c5bf;
+  }
+  .flow {
+    padding: 3rem 0 1rem;
+  }
+  .section-title {
+    font-size: clamp(1.4rem, 3vw, 1.75rem);
+    margin: 0 0 1.5rem;
+    padding-left: 0.75rem;
+    border-left: 4px solid var(--c-accent);
+  }
+  .flow__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .flow__item {
+    background: var(--c-card);
+    border: 1px solid var(--c-border);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+  }
+  .flow__step {
+    margin: 0 0 0.25rem;
+    color: var(--c-accent);
+    font-weight: 600;
+  }
+  .flow__desc {
+    margin: 0;
+    font-size: 0.95rem;
+  }
+  .footer {
+    background: #1d1d1f;
+    color: #c8c5bf;
+    padding: 2rem 0;
+    font-size: 0.85rem;
+  }
+  .footer p {
+    margin: 0 0 0.5rem;
+  }
+  .footer__addr {
+    color: #908d87;
+  }
+  .footer__note {
+    color: #908d87;
+    font-size: 0.78rem;
+  }
+</style>

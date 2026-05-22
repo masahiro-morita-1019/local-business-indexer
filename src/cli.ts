@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
+import { runBuildData } from './pipeline/buildData.ts';
+import { runDeploy } from './pipeline/deploy.ts';
 import { runDiscover } from './pipeline/discover.ts';
 import { runDraftCallScripts } from './pipeline/draftCallScripts.ts';
-import { runExtractContacts } from './pipeline/extractContacts.ts';
 
 const program = new Command();
 
@@ -34,49 +35,19 @@ program
         dryRun: opts.dryRun,
       });
       console.log('\n=== サマリ ===');
-      console.log(`発見             : ${summary.found}`);
-      console.log(`  - HP無し       : ${summary.byClass.none}`);
-      console.log(`  - SNSのみ      : ${summary.byClass.sns_only}`);
-      console.log(`  - HPあり       : ${summary.byClass.has_website}`);
-      console.log(`大手チェーン店   : ${summary.chainStores} (営業対象外フラグ済)`);
-      console.log(`HTTP only (古HP) : ${summary.httpOnly}`);
+      console.log(`発見              : ${summary.found}`);
+      console.log(`  - HP無し        : ${summary.byClass.none}`);
+      console.log(`  - SNSのみ       : ${summary.byClass.sns_only}`);
+      console.log(`  - HPあり (除外) : ${summary.byClass.has_website}`);
+      console.log(`大手チェーン店    : ${summary.chainStores} (営業対象外)`);
       console.log(
-        `優先度           : 高=${summary.byPriority.高} / 中=${summary.byPriority.中} / 低=${summary.byPriority.低} / 除外=${summary.byPriority.除外}`,
+        `優先度            : 高=${summary.byPriority.高} / 中=${summary.byPriority.中} / 低=${summary.byPriority.低} / 除外=${summary.byPriority.除外}`,
       );
       if (!opts.dryRun) {
-        console.log(`Notion 新規追加  : ${summary.created}`);
-        console.log(`Notion 更新      : ${summary.updated}`);
+        console.log(`Notion 新規追加   : ${summary.created}`);
+        console.log(`Notion 更新       : ${summary.updated}`);
+        console.log(`Notion 見送り遷移 : ${summary.demoted} (has_website 化した既存ページ)`);
       }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`\n[cli] 実行エラー: ${msg}`);
-      process.exit(1);
-    }
-  });
-
-program
-  .command('extract-contacts')
-  .description(
-    'WebsiteClass=has_website かつ Email 未取得のページを対象に、HPからメアド/問い合わせフォームを抽出して Notion に保存',
-  )
-  .option('-l, --limit <n>', '最大処理件数', (v) => Number.parseInt(v, 10), 50)
-  .option('-p, --concurrency <n>', '並列度', (v) => Number.parseInt(v, 10), 3)
-  .option('--dry-run', 'Notion に書き込まず、結果のみ表示', false)
-  .action(async (opts: { limit: number; concurrency: number; dryRun: boolean }) => {
-    try {
-      const summary = await runExtractContacts({
-        limit: Math.max(1, opts.limit),
-        concurrency: Math.max(1, Math.min(10, opts.concurrency)),
-        dryRun: opts.dryRun,
-      });
-      console.log('\n=== サマリ ===');
-      console.log(`対象候補               : ${summary.candidates}`);
-      console.log(`メアド取得             : ${summary.emailFound}`);
-      console.log(`フォームのみ           : ${summary.formOnly}`);
-      console.log(`何も取れず             : ${summary.noContact}`);
-      console.log(`エラー                 : ${summary.errors}`);
-      console.log(`実応答 HTTPS 確認      : ${summary.actualHttpsConfirmed}`);
-      console.log(`GBP=http→実=https の検出: ${summary.httpsUpgradeDetected}(スコア再計算済)`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`\n[cli] 実行エラー: ${msg}`);
@@ -130,6 +101,83 @@ program
       }
     },
   );
+
+program
+  .command('build-data')
+  .description(
+    'Notion から OutreachPriority=高/中 × WebsiteClass=none/sns_only の企業を取得し、Phase 2 (HP生成) 用に正規化 JSON を出力',
+  )
+  .option('-c, --category <category>', '業種で絞り込み (例: "外壁塗装")')
+  .option('-m, --min-priority <p>', '最低優先度 (高 / 中 / 低) - これ以上のスコアを含める', '中')
+  .option('-o, --out <path>', '出力先 JSON ファイル', 'src/generator/site/data/targets.json')
+  .action(async (opts: { category?: string; minPriority: string; out: string }) => {
+    if (opts.minPriority !== '高' && opts.minPriority !== '中' && opts.minPriority !== '低') {
+      console.error(`[cli] --min-priority は 高/中/低 のいずれか: ${opts.minPriority}`);
+      process.exit(1);
+    }
+    try {
+      const summary = await runBuildData({
+        category: opts.category,
+        minPriority: opts.minPriority as '高' | '中' | '低',
+        outFile: opts.out,
+      });
+      console.log('\n=== サマリ ===');
+      console.log(`出力ファイル : ${summary.outFile}`);
+      console.log(`件数         : ${summary.count}`);
+      console.log(
+        `優先度内訳   : 高=${summary.byPriority.高} / 中=${summary.byPriority.中} / 低=${summary.byPriority.低}`,
+      );
+      const cats = Object.entries(summary.byCategory)
+        .map(([c, n]) => `${c}=${n}`)
+        .join(', ');
+      console.log(`業種内訳     : ${cats || '(なし)'}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`\n[cli] 実行エラー: ${msg}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('deploy')
+  .description(
+    'Phase 3: dist/generated-sites/ を Cloudflare Pages にアップロードし、Notion に PreviewUrl を書き戻す',
+  )
+  .option('-d, --dist <path>', 'ビルド成果物ディレクトリ', 'dist/generated-sites')
+  .option(
+    '-t, --targets <path>',
+    'デプロイ対象を示す targets.json のパス',
+    'src/generator/site/data/targets.json',
+  )
+  .option(
+    '--skip-upload',
+    'Cloudflare へのアップロードをスキップ (Notion 書き戻しだけテスト)',
+    false,
+  )
+  .option('--dry-run', 'Cloudflare はアップロードするが Notion 書き戻しはスキップ', false)
+  .action(async (opts: { dist: string; targets: string; skipUpload: boolean; dryRun: boolean }) => {
+    try {
+      const summary = await runDeploy({
+        distDir: opts.dist,
+        targetsFile: opts.targets,
+        skipUpload: opts.skipUpload,
+        dryRun: opts.dryRun,
+      });
+      console.log('\n=== サマリ ===');
+      console.log(`Production URL  : ${summary.productionUrl}`);
+      console.log(`アップロード    : ${summary.uploaded ? '実行済' : 'スキップ'}`);
+      console.log(`対象企業        : ${summary.targetsCount}`);
+      if (!opts.dryRun) {
+        console.log(`Notion 更新     : ${summary.notionUpdated}`);
+        console.log(`Notion 未発見   : ${summary.notionNotFound}`);
+        console.log(`Notion エラー   : ${summary.notionErrors}`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`\n[cli] 実行エラー: ${msg}`);
+      process.exit(1);
+    }
+  });
 
 program.parseAsync().catch((err) => {
   console.error(err);

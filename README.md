@@ -6,14 +6,17 @@ Google Maps の特定エリア × 業種を調査し、**ホームページ未�
 
 ## 現在のスコープ
 
-- **Phase 1: 調査** — Google Places API で店舗検索 → `none` / `sns_only` / `has_website` の3段階に分類 → 全件を Notion DB に保存
-- **Phase 1.5: コンタクトスクレイパー** — `has_website` の企業のHPからメアド/問い合わせフォームURLを抽出 → Notion に追記
+- **Phase 1: 調査** — Google Places API で店舗検索 → `none` / `sns_only` / `has_website` の3段階に分類 → `none` と `sns_only` のみ Notion DB に保存。`has_website` 化した既存ページは `Status=見送り` に遷移。
+- **Phase 2: HP生成** — Astro v6 + `@astrojs/react` で「サンプルHP」を全社分静的書き出し。外壁塗装テンプレ実装済(`src/generator/site/`)。ローカルプレビューUI(`/`) + 個社ページ(`/<placeId>`)。
+- **Phase 3: デプロイ** — Cloudflare Pages に全社1プロジェクト + サブパスで公開(`https://<project>.pages.dev/<placeId>/`)。Wrangler CLI 経由。デプロイ後 Notion の `PreviewUrl` に各社の URL、`Status=未着手` のみ `HP生成済` に遷移。
+- **Phase 4-B: 電話スクリプト生成** — `OutreachPriority=高/中` × `WebsiteClass ∈ {none, sns_only}` 向けに Claude API でトークスクリプトを生成。
 
-営業チャネル方針(A+B+D):
+営業チャネル方針(**A+B 体制**):
 
 - **A. 郵送DM**: `none` / `sns_only` 向け(住所・店名を使用)
 - **B. 電話営業**: `none` / `sns_only` 向け(電話番号を使用)
-- **D. メール営業**: `has_website` 向け(Phase 1.5 で取得したメアド)
+
+> 2026-05-21、所沢市×外壁塗装の実観察を踏まえ、独自ドメインのHPを持つ企業へのメール営業(D ルート)は廃止しました。AI製サンプルで上書き提案するメリットが薄く、調査コストに見合わないため。詳細は `docs/classification-rules.md` 参照。
 
 Phase 2(HP生成)以降は今後実装。
 
@@ -24,6 +27,8 @@ Phase 2(HP生成)以降は今後実装。
 ```bash
 pnpm install
 ```
+
+Node.js **22.12 以上** が必要。
 
 ### 2. Google Places API キーを取得
 
@@ -65,28 +70,71 @@ pnpm setup:notion
 pnpm migrate:notion
 ```
 
-`schema.ts` に追加されたプロパティを idempotent に追加。既存DBに対し Phase 1.5 用の `Email` / `ContactFormUrl` 等を追加するときに使う。
+`schema.ts` に追加されたプロパティを idempotent に追加。**ただし削除はされない** ため、D ルート廃止後に既存DBから `Email` / `ContactFormUrl` / `ContactExtractedAt` / `ContactExtractionNote` / `ActualUrl` / `UsesHttps` / `メール下書き` Status を消したい場合は **Notion UI から手動削除** してください。
 
 ## 使い方
 
 ### Phase 1: 調査
 
 ```bash
-# 相模原市の工務店を最大60件調査(デフォルト)
-pnpm indexer discover --area "相模原市" --category "工務店"
+# 所沢市の外壁塗装を最大60件調査(Tier S 業種を推奨)
+pnpm indexer discover --area "所沢市" --category "外壁塗装"
 
 # 件数を絞る + Notion 書き込みなしで結果だけ確認
-pnpm indexer discover --area "町田市" --category "塗装業" --limit 20 --dry-run
+pnpm indexer discover --area "町田市" --category "リフォーム" --limit 20 --dry-run
 ```
 
 | オプション | 必須 | 説明 |
 |---|---|---|
-| `--area, -a` | ✓ | 検索エリア(例: `"相模原市"`) |
-| `--category, -c` | ✓ | 業種(例: `"工務店"`) |
+| `--area, -a` | ✓ | 検索エリア(例: `"所沢市"`) |
+| `--category, -c` | ✓ | 業種(例: `"外壁塗装"`) |
 | `--limit, -l` | | 最大取得件数(1〜60、デフォルト60) |
 | `--dry-run` | | Notion 書き込みをスキップ |
 
-検索結果は `WebsiteClass = none / sns_only / has_website` を問わず **全件 Notion に保存** される。営業対象は後段の Notion ビューでフィルタする。
+**保存対象**: `WebsiteClass ∈ {none, sns_only}` のみ。`has_website` の店は **新規 upsert されない**。既存ページが has_website に変化した場合は `Status=未着手` のときだけ `見送り` に遷移する。
+
+### Phase 2: HP生成(サンプルHP一覧 + 個社ページ)
+
+`OutreachPriority=高/中` × `WebsiteClass ∈ {none, sns_only}` の企業向けに、外壁塗装サンプルHPを全社分静的書き出しする。
+
+```bash
+# 1. Notion から正規化 JSON を生成
+pnpm indexer build-data --category "外壁塗装" --min-priority 中
+
+# 2. ローカル開発サーバ起動(http://localhost:4321)
+pnpm preview
+
+# 3. 静的ビルド(本番用 → dist/generated-sites/<placeId>/index.html)
+pnpm generate
+
+# build-data + preview を一発で
+pnpm site
+```
+
+- 入力: `src/generator/site/data/targets.json`(build-data CLI の出力)
+- 出力: `dist/generated-sites/<placeId>/index.html`
+- テンプレ: 外壁塗装のみ実装済(`src/generator/site/src/templates/gaiheki/`)。横展開は同README参照
+- 透明性: 店ごとの事実(店名 / 電話 / 住所 / Googleレビュー)は target から差し込み、装飾コピーは汎用テンプレ。サンプルHP上部に「これはサンプル」と明示
+
+詳細は [src/generator/README.md](src/generator/README.md) 参照。
+
+### Phase 3: Cloudflare Pages にデプロイ
+
+```bash
+# 初回のみ: PreviewUrl / PreviewDeployedAt プロパティを Notion DB に追加
+pnpm migrate:notion
+
+# Cloudflare Pages に全社1プロジェクトでアップロード + Notion に PreviewUrl を書き戻し
+pnpm indexer deploy
+```
+
+事前準備:
+- `.env` に `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_PAGES_PROJECT` を設定
+- `pnpm indexer build-data` + `pnpm generate` で `dist/generated-sites/` を作っておく
+
+公開 URL: `https://<CLOUDFLARE_PAGES_PROJECT>.pages.dev/<placeId>/`
+
+詳細は [src/deployer/README.md](src/deployer/README.md) 参照。
 
 ### Phase 4-B: 電話スクリプト生成
 
@@ -147,40 +195,15 @@ pnpm indexer draft-call-scripts --limit 10
 
 使用モデル: **Claude Opus 4.7** (`claude-opus-4-7`)。1社あたり推定 $0.02。
 
-### Phase 1.5: コンタクトスクレイパー
-
-`has_website` の企業のHPからメアド/問い合わせフォームを抽出して Notion に追記する。
-
-```bash
-# 最大50件処理(デフォルト)
-pnpm indexer extract-contacts
-
-# 件数を絞ってDryRun(Notion書き込みなし)
-pnpm indexer extract-contacts --limit 10 --dry-run
-```
-
-| オプション | 説明 |
-|---|---|
-| `--limit, -l` | 最大処理件数(デフォルト 50) |
-| `--concurrency, -p` | 並列度(1〜10、デフォルト 3)。**同一ドメインへの連続アクセスは1req/sec 制限** |
-| `--dry-run` | Notion 書き込みをスキップ |
-
-抽出ロジック:
-- robots.txt 尊重(Disallow に該当するパスはスキップ)
-- `mailto:` リンク + 本文中のメアド(`info[at]example.com` 等の簡易難読化にも対応)
-- 採用/サポート/no-reply 系の役割アドレスは自動除外
-- 問い合わせフォーム(`<form>` の action URL)も検出して保存
-- Cloudflare Email Protection は復号せず、ノートに警告だけ残す
-
 ## おすすめのテスト対象
 
-HP未保有率が体感的に高い組み合わせ:
+HP未保有率 × 単価の組み合わせが良い業種は `docs/target-industries.md` 参照。
 
-- **エリア**: 首都圏郊外の中規模都市 — `相模原市` / `町田市` / `松戸市` など
-- **業種**: 建設関連 — `工務店` / `塗装業` / `内装工事` / `解体業`
+Tier S(最有力):
+- **外壁塗装** / **リフォーム** / **エアコンクリーニング** / **害虫駆除** / **不用品回収** / **ハウスクリーニング**
 
 ```bash
-pnpm indexer discover --area "相模原市" --category "工務店" --limit 60
+pnpm indexer discover --area "所沢市" --category "外壁塗装" --limit 60
 ```
 
 ## 開発
@@ -201,15 +224,21 @@ src/
 ├── discovery/
 │   ├── places/               # Places API (New) クライアント (Phase 1)
 │   ├── filter/               # HP判定ロジック (Phase 1)
-│   └── contact-extractor/    # コンタクト情報スクレイパー (Phase 1.5)
+│   └── classify/             # chainStore / legalForm / priority (Phase 1)
 ├── notion/                   # 共通: Notion永続化レイヤ
 ├── pipeline/
 │   ├── discover.ts           # Phase 1 統合
-│   └── extractContacts.ts    # Phase 1.5 統合
-├── generator/                # Phase 2: HP生成 (未実装)
-├── deployer/                 # Phase 3: デプロイ (未実装)
-├── sales/                    # Phase 4: 営業文生成 (未実装、outreach/ に再編予定)
-└── mail/                     # Phase 5: メール下書き (未実装、outreach/email/ に再編予定)
+│   ├── buildData.ts          # Phase 2: Notion → 正規化JSON
+│   └── deploy.ts             # Phase 3: Cloudflare Pages デプロイ + Notion 書き戻し
+├── outreach/
+│   └── call/                 # Phase 4-B: 電話スクリプト生成
+├── llm/                      # Anthropic SDK ラッパ
+├── generator/                # Phase 2: HP生成 (実装済)
+│   └── site/                 # Astro v6 プロジェクト (独立 tsconfig)
+├── deployer/                 # Phase 3: デプロイ (実装済)
+│   └── cloudflare/           # Wrangler CLI ラッパ
+├── sales/                    # (将来 outreach/ 配下に再編予定)
+└── mail/                     # (将来 outreach/email/ に再編予定)
 ```
 
 Phase 2 以降は README のみ置き、実装はまだ。
@@ -219,6 +248,6 @@ Phase 2 以降は README のみ置き、実装はまだ。
 詳細な設計判断は `~/.claude/plans/google-map-hp-goofy-thunder.md` 参照。要点:
 
 - **Places API (New) の `searchText` のみで完結**: `websiteUri` を FieldMask で要求すれば Place Details を呼ばずに済む → コスト削減。
-- **3段階分類**: `websiteUri` が空 → `none`、SNS/簡易LPのみ → `sns_only`、独自ドメイン → `has_website`。営業優先度を可視化。
-- **upsert は事実情報のみ更新**: 運用側で更新した `Status` / `Notes` は自動上書きしない。
-- **手動送信前提**: メール自動送信はしない(特定電子メール法 / 誤送信リスク回避)。Phase 5 は Gmail 下書き作成まで。
+- **3段階分類**: `websiteUri` が空 → `none`、SNS/簡易LPのみ → `sns_only`、独自ドメイン → `has_website`。営業対象は `{none, sns_only}` のみ。
+- **upsert は事実情報のみ更新**: 運用側で更新した `Status` / `Notes` は自動上書きしない(例外: has_website 遷移時の Status=見送り は `未着手` のページに限り上書きする)。
+- **手動送信前提**: メール自動送信はしない(特定電子メール法 / 誤送信リスク回避)。

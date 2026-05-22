@@ -3,6 +3,10 @@ import type { CreateDatabaseParameters } from '@notionhq/client/build/src/api-en
 /**
  * Notion DB スキーマ(プロパティ定義)。
  * setup-notion-db スクリプトで使用するほか、upsert 側の型安全のためにも参照する。
+ *
+ * 2026-05-21 方針転換: D ルート(has_website への メール営業)廃止に伴い、
+ * Email / ContactFormUrl / ContactExtractedAt / ContactExtractionNote / ActualUrl / UsesHttps を削除。
+ * WEBSITE_CLASS_OPTIONS は has_website を残す(classifyWebsite の戻り値型として使う + 既存DBビュー互換のため)。
  */
 export const PROPERTIES = {
   Name: 'Name',
@@ -23,16 +27,9 @@ export const PROPERTIES = {
   FoundAt: 'FoundAt',
   LastCheckedAt: 'LastCheckedAt',
   Notes: 'Notes',
-  // Phase 1.5: コンタクト情報スクレイパーで追加
-  Email: 'Email',
-  ContactFormUrl: 'ContactFormUrl',
-  ContactExtractedAt: 'ContactExtractedAt',
-  ContactExtractionNote: 'ContactExtractionNote',
-  ActualUrl: 'ActualUrl',
-  // ターゲット品質改善で追加 (大手チェーン除外 / HTTPS判定 / 法人格判定)
+  // ターゲット品質改善で追加 (大手チェーン除外 / 法人格判定)
   IsChainStore: 'IsChainStore',
   ChainName: 'ChainName',
-  UsesHttps: 'UsesHttps',
   LegalForm: 'LegalForm',
   OutreachPriority: 'OutreachPriority',
   OutreachScore: 'OutreachScore',
@@ -40,16 +37,12 @@ export const PROPERTIES = {
   // Phase 4-B: 電話スクリプト
   CallScript: 'CallScript',
   CallScriptGeneratedAt: 'CallScriptGeneratedAt',
+  // Phase 3: HP デプロイ
+  PreviewUrl: 'PreviewUrl',
+  PreviewDeployedAt: 'PreviewDeployedAt',
 } as const;
 
-export const STATUS_OPTIONS = [
-  '未着手',
-  'HP生成済',
-  'メール下書き',
-  '送付済',
-  '返信あり',
-  '見送り',
-] as const;
+export const STATUS_OPTIONS = ['未着手', 'HP生成済', '送付済', '返信あり', '見送り'] as const;
 export type StatusOption = (typeof STATUS_OPTIONS)[number];
 
 export const WEBSITE_CLASS_OPTIONS = ['none', 'sns_only', 'has_website'] as const;
@@ -96,14 +89,8 @@ export const databaseProperties: CreateDatabaseParameters['properties'] = {
   [PROPERTIES.FoundAt]: { date: {} },
   [PROPERTIES.LastCheckedAt]: { date: {} },
   [PROPERTIES.Notes]: { rich_text: {} },
-  [PROPERTIES.Email]: { email: {} },
-  [PROPERTIES.ContactFormUrl]: { url: {} },
-  [PROPERTIES.ContactExtractedAt]: { date: {} },
-  [PROPERTIES.ContactExtractionNote]: { rich_text: {} },
-  [PROPERTIES.ActualUrl]: { url: {} },
   [PROPERTIES.IsChainStore]: { checkbox: {} },
   [PROPERTIES.ChainName]: { rich_text: {} },
-  [PROPERTIES.UsesHttps]: { checkbox: {} },
   [PROPERTIES.LegalForm]: {
     select: {
       options: LEGAL_FORM_OPTIONS.map((name) => ({ name })),
@@ -118,4 +105,6 @@ export const databaseProperties: CreateDatabaseParameters['properties'] = {
   [PROPERTIES.OutreachReasons]: { rich_text: {} },
   [PROPERTIES.CallScript]: { rich_text: {} },
   [PROPERTIES.CallScriptGeneratedAt]: { date: {} },
+  [PROPERTIES.PreviewUrl]: { url: {} },
+  [PROPERTIES.PreviewDeployedAt]: { date: {} },
 };

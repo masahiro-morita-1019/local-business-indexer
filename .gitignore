@@ -12,3 +12,8 @@ coverage
 /prompts.md
 /prompts*.md
 /output/
+
+# Astro / Phase 2 generator
+/src/generator/site/.astro
+/src/generator/site/data/targets.json
+/dist/generated-sites

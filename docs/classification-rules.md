@@ -4,6 +4,8 @@
 
 > 📌 **更新の指針**: 営業を回す中で「これは違うだろ」という誤判定が出たら、ここを更新する起点にしてください。各ルールに対応するコードと、誤判定が出たときに変えるべきパラメータを明示しています。
 
+> 📌 **2026-05-21 方針転換**: D ルート(`has_website` への メール営業)を廃止。`has_website` の店は **Notion に新規 upsert されない** ようになった。代わりに、既存ページが has_website に遷移した場合は WebsiteClass を更新 + Status が `未着手` のときだけ `見送り` に切り替える。営業チャネルは **A(郵送DM) + B(電話)** の 2チャネル運用。
+
 ---
 
 ## 識別フラグ一覧
@@ -14,7 +16,6 @@
 | `DecisionReason` | Rich text | `WebsiteClass` を決めた根拠(監査用) | 同上 |
 | `IsChainStore` | Checkbox | 大手ハウスメーカー等の **チェーン店舗** か | `src/discovery/classify/chainStore.ts` |
 | `ChainName` | Rich text | チェーン名(マッチした場合のみ) | 同上 |
-| `UsesHttps` | Checkbox | Webサイトが `https://` で運用されているか | `src/discovery/classify/https.ts` |
 | `LegalForm` | Select | 法人格(株/有/合同/NPO/…/不明) | `src/discovery/classify/legalForm.ts` |
 | `OutreachPriority` | Select | 営業優先度の3段階ラベル(高/中/低/除外) | `src/discovery/classify/priority.ts` |
 | `OutreachScore` | Number | 加点ルールから計算した数値スコア | 同上 |
@@ -26,11 +27,11 @@
 
 ### 値
 
-| 値 | 意味 | 主な営業チャネル |
-|---|---|---|
-| `none` | `websiteUri` が未登録 | A(郵送DM)/ B(電話) |
-| `sns_only` | `websiteUri` あり、ただしSNSや簡易LPなど **自社HPと言いがたいもののみ** | A / B(条件次第でD) |
-| `has_website` | 独自ドメインの自社HPがある | D(メール、Phase 1.5でメアド取得後) |
+| 値 | 意味 | Notion保存 | 主な営業チャネル |
+|---|---|---|---|
+| `none` | `websiteUri` が未登録 | ✅ 新規 upsert | A(郵送DM)/ B(電話) |
+| `sns_only` | `websiteUri` あり、ただしSNSや簡易LPなど **自社HPと言いがたいもののみ** | ✅ 新規 upsert | A / B |
+| `has_website` | 独自ドメインの自社HPがある | ❌ 新規 upsert しない(既存ページは見送りへ遷移) | 営業対象外 |
 
 ### `sns_only` 扱いとするドメインリスト
 
@@ -56,7 +57,17 @@
 
 - `websiteUri` が空 ≠ 確実にHPなし。Google Maps 未登録のケースがある(本社HPはあるが店舗オーナーが Maps に登録していない等)。
   - 営業前に **店名で再ググる** 運用を推奨。
-- 上記リスト以外の独自ドメインはすべて `has_website` 扱い。ただし「独自ドメインだが Wix のサブドメイン」など曖昧なケースがあれば、`DEFAULT_SNS_DOMAINS` に追記する。
+- 上記リスト以外の独自ドメインはすべて `has_website` 扱いになり、**営業対象から外れる**。境界事例(Wix のサブドメイン等)があれば `DEFAULT_SNS_DOMAINS` に追記して救済。
+
+### has_website 遷移時の挙動(discover の更新ロジック)
+
+過去に `none` / `sns_only` で Notion に保存した企業が、再 discover 時に `has_website` に変化した場合:
+
+- `WebsiteClass` を `has_website` に更新
+- `Website` / `DecisionReason` / `LastCheckedAt` も同時に更新
+- `Status` が `未着手` のときだけ `見送り` に切り替える(`架電済` 等の営業中ステータスは尊重)
+
+→ 古い「HPなし候補」が陳腐化したまま残り続けるのを防ぐ。
 
 ### ルール変更箇所
 `src/discovery/filter/noWebsite.ts` の `DEFAULT_SNS_DOMAINS` 配列。
@@ -112,29 +123,7 @@
 
 ---
 
-## 3. UsesHttps — Webサイトの HTTPS 対応
-
-### なぜ判定するか
-独自ドメインで運用していても `http://` のままの店は **「Webサイトが古い」シグナル**。営業対象として:
-- メール提案で「セキュリティ警告が出る現状の改善」を切り口にできる
-- HP制作の引き合い動機が明確になる
-
-### 判定方法
-`websiteUri` のスキームだけを見る:
-- `https://` → `UsesHttps=true`
-- `http://` → `UsesHttps=false`
-- 空 / 非HTTPスキーム / パース失敗 → 内部的には `undefined`、Notion には `false` で保存(後述)
-
-### 注意点
-- **登録URLベースの暫定値**。実際のサイトが `http→https` リダイレクトしているかもしれない。厳密判定はPhase 1.5(コンタクトスクレイパー)で実応答を見れば上書き可能。
-- **`UsesHttps=false` が即 "古いHP" を意味するわけではない**。Notion のフィルタは必ず `WebsiteClass=has_website AND UsesHttps=false` の組み合わせで使うこと(`none` や `sns_only` の `UsesHttps=false` はノイズ)。
-
-### ルール変更箇所
-`src/discovery/classify/https.ts`。
-
----
-
-## 4. LegalForm — 法人格の自動判定
+## 3. LegalForm — 法人格の自動判定
 
 ### なぜ判定するか
 - **宛名表記の自動生成**: 法人なら「〇〇 御中」、個人事業主なら「〇〇 様」と書き分けたい。
@@ -176,10 +165,10 @@
 
 ---
 
-## 5. OutreachPriority — 営業優先度スコア
+## 4. OutreachPriority — 営業優先度スコア
 
 ### なぜ判定するか
-営業対象は「★3.5-4.2 + レビュー20件以上 + HP無し/古い」が最も売れる(=客がついている裏付け × 改善余地大の組み合わせ)。これを **数値スコア** に落とし込んで、Notion でソート・フィルタできるようにする。
+営業対象は「★3.5-4.2 + レビュー20件以上 + HP無し」が最も売れる(=客がついている裏付け × 改善余地大の組み合わせ)。これを **数値スコア** に落とし込んで、Notion でソート・フィルタできるようにする。
 
 ### スコア計算ルール
 
@@ -192,8 +181,8 @@
 | rating >= 4.5 | +15 | 品質高、HP次第で伸びる |
 | WebsiteClass=none(HP無し) | **+20** | コア訴求対象(※GBP非紐付けの可能性込みで控えめ) |
 | WebsiteClass=sns_only | +20 | 簡易LP/SNSのみ |
-| has_website + UsesHttps=false | +15 | 「HPはあるが古い」訴求(※実HTTPプローブ後は信頼度高) |
-| has_website + UsesHttps=true | **-25** | まともなHPあり=サイト制作の見込み薄 |
+
+`has_website` は新規 upsert しないため、優先度計算には現れない(万が一渡されても加点なし)。
 
 ### ラベル変換(閾値)
 
@@ -204,15 +193,13 @@
 | `30 <= score < 50` | **中** | 次のロット |
 | `score < 30` | **低** | 余力があれば |
 
-### 出力例(更新済)
+### 出力例
 
 | 入力 | スコア計算 | ラベル |
 |---|---|---|
 | 評価★3.8、レビュー40件、HP無し | 30(reviews) + 20(rating) + 20(none) = **70** | **高** |
-| 評価★4.0、レビュー25件、HP有り(http) | 30 + 20 + 15(http) = **65** | **高** |
 | 評価★4.6、レビュー12件、SNSのみ | 15 + 15 + 20(sns_only) = **50** | **高** |
-| 評価★4.0、レビュー30件、HP有り(https) — 立派なHP | 30 + 20 - 25(https) = **25** | **低** |
-| 評価★4.5、レビュー2件、HP有り(https) | 15 - 25 = **-10** | **低** |
+| 評価★4.0、レビュー5件、HP無し | 20(none) = **20** | **低** |
 | 大手チェーン | -1000 | **除外** |
 
 ### 追跡可能性
@@ -236,11 +223,10 @@
 
 | 営業チャネル | フィルタ条件 |
 |---|---|
-| **D: メール(最優先)** | `OutreachPriority = 高` AND `WebsiteClass = has_website` AND `Email` あり |
-| **D: メール(通常)** | `OutreachPriority ∈ {高, 中}` AND `WebsiteClass = has_website` AND `Email` あり |
 | **B: 電話** | `OutreachPriority ∈ {高, 中}` AND `WebsiteClass ∈ {none, sns_only}` AND `Phone` あり |
 | **A: 郵送DM** | `OutreachPriority ∈ {高, 中}` AND `WebsiteClass ∈ {none, sns_only}` AND `Address` あり |
 | **要レビュー** | `OutreachPriority = 除外`(自動除外候補。一応目視で確認) |
+| **見送り(参考)** | `Status = 見送り` AND `WebsiteClass = has_website`(過去に none/sns_only から遷移したもの) |
 
 ---
 
@@ -256,50 +242,17 @@ GBPに登録していないだけ。Web検索すると別ドメインで普通�
 
 → 対策案(将来): Phase 1.6 として「店名 + エリア」で Web検索して実HPを探すステップを追加。今は **OutreachPriority=高 のうち`none` クラスは目視確認することを推奨**。
 
-### B. `UsesHttps=false` でも実際は https に自動リダイレクト
-
-GBPに `http://` で登録、実サイトは `301` で `https://` にリダイレクト、というよくあるパターン。
-
-例: `こなから建築工房`(GBP登録: `http://www.konakarakenchiku.com/`)→ 実応答: `301 → https://www.konakarakenchiku.com/`。
-
-→ **対策済**: Phase 1.5 のコンタクトスクレイパーが実HTTPリクエストを行い、最終URL(リダイレクト後)を取得して `UsesHttps` を上書き、`OutreachPriority`/`Score`/`Reasons` を再計算する。
-- 検出された差分は `ActualUrl` プロパティに保存される
-- `ContactExtractionNote` に「実応答URL: ...」と記録される
-- スコアは `+15 (古HP)` → `-25 (まともなHP)` に更新される(40点の差)
-
-### C. Places API のスコア重みは控えめに
+### B. Places API のスコア重みは控えめに
 
 不確実性を加味するため、当初設計より重みを下げてある:
 - `WebsiteClass=none` : 30 → **20**
-- `has_website + UsesHttps=false` : 25 → **15**
-
-→ ただし Phase 1.5 の **実応答ベースの上書き** が走った後は、`has_website + https` のペナルティ `-25` が高い信頼度で適用される。
 
 ### 運用上の推奨フロー
 
-1. `pnpm indexer discover` で大量取得(暫定スコア)
-2. `pnpm indexer extract-contacts` で `has_website` 候補の実HTTPプローブ(スコア確定)
-3. Notion ビューを `OutreachScore` 降順 + `OutreachPriority != 除外` でフィルタ
-4. **上位の `WebsiteClass=none` だけは目視確認**(実HPがある可能性)
-
----
-
-## 内部用 識別ロジック(コードには出るが Notion に保存されないもの)
-
-### メアド除外パターン(Phase 1.5)
-Phase 1.5 のコンタクトスクレイパーで、HPから抽出したメアドのうち **営業先として不適切なもの** を弾く。
-
-採用しないパターン:
-
-- **採用系**: `recruit`, `recruits`, `recruiting`, `career`, `careers`, `job`, `jobs`, `hr`, `jinji`
-- **システム/技術系**: `no-reply`, `noreply`, `donotreply`, `do-not-reply`, `postmaster`, `webmaster`, `admin`, `root`, `mailer-daemon`, `bounce`
-- **サポート専用**: `support`, `help`, `helpdesk`, `customer-support`, `customersupport`
-- **その他**: `abuse`, `privacy`, `legal`, `security`, `press`, `media`
-
-優先採用するパターン(営業向け代表アドレスらしさ):
-- `info`, `contact`, `hello`, `sales`, `inquiry`, `mail`, `office`
-
-詳細は `src/discovery/contact-extractor/emailFilter.ts` 参照。
+1. `pnpm indexer discover` で大量取得
+2. Notion ビューを `OutreachScore` 降順 + `OutreachPriority != 除外` でフィルタ
+3. **上位の `WebsiteClass=none` だけは目視確認**(実HPがある可能性)
+4. その上で電話 / DM ルートに着手
 
 ---
 

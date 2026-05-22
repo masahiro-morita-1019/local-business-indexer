@@ -6,7 +6,6 @@ describe('scorePriority', () => {
     const r = scorePriority({
       websiteClass: 'none',
       isChainStore: true,
-      usesHttps: undefined,
       rating: 4.0,
       reviewCount: 50,
     });
@@ -18,7 +17,6 @@ describe('scorePriority', () => {
     const r = scorePriority({
       websiteClass: 'none',
       isChainStore: false,
-      usesHttps: undefined,
       rating: 3.8,
       reviewCount: 40,
     });
@@ -27,62 +25,22 @@ describe('scorePriority', () => {
     expect(r.score).toBe(70);
   });
 
-  it('returns 高 for has_website + http only + reviews 25', () => {
-    const r = scorePriority({
-      websiteClass: 'has_website',
-      isChainStore: false,
-      usesHttps: false,
-      rating: 4.0,
-      reviewCount: 25,
-    });
-    // reviews 30 + rating 20 + http 15 = 65
-    expect(r.label).toBe('高');
-    expect(r.score).toBe(65);
-  });
-
-  it('returns 中 for sns_only + few reviews', () => {
+  it('returns 高 for sns_only + good rating + medium reviews', () => {
     const r = scorePriority({
       websiteClass: 'sns_only',
       isChainStore: false,
-      usesHttps: true,
       rating: 4.6,
       reviewCount: 12,
     });
     // reviews(10-19) 15 + rating(>=4.5) 15 + sns_only 20 = 50
     expect(r.label).toBe('高');
-  });
-
-  it('penalizes has_website + https + good reviews (proper HP, not target)', () => {
-    const r = scorePriority({
-      websiteClass: 'has_website',
-      isChainStore: false,
-      usesHttps: true,
-      rating: 4.0,
-      reviewCount: 30,
-    });
-    // reviews 30 + rating(3.5-4.2) 20 + https(-25) = 25
-    expect(r.label).toBe('低');
-    expect(r.score).toBe(25);
-  });
-
-  it('returns 低 for has_website + few reviews + https + rating 4.5', () => {
-    const r = scorePriority({
-      websiteClass: 'has_website',
-      isChainStore: false,
-      usesHttps: true,
-      rating: 4.5,
-      reviewCount: 2,
-    });
-    // rating(>=4.5) 15 + https(-25) = -10
-    expect(r.label).toBe('低');
-    expect(r.score).toBe(-10);
+    expect(r.score).toBe(50);
   });
 
   it('handles undefined rating/reviews gracefully', () => {
     const r = scorePriority({
       websiteClass: 'none',
       isChainStore: false,
-      usesHttps: undefined,
       rating: undefined,
       reviewCount: undefined,
     });
@@ -95,7 +53,6 @@ describe('scorePriority', () => {
     const r = scorePriority({
       websiteClass: 'none',
       isChainStore: false,
-      usesHttps: undefined,
       rating: 4.0,
       reviewCount: 30,
     });
@@ -105,17 +62,18 @@ describe('scorePriority', () => {
     expect(r.reasons.some((s) => s.includes('WebsiteClass=none'))).toBe(true);
   });
 
-  it('does NOT apply https penalty for none / sns_only classes', () => {
-    // none class with no website → usesHttps is undefined, no penalty
+  it('does not add bonus for has_website (D ルート廃止後の挙動)', () => {
+    // has_website が万が一渡された場合でも、none/sns_only 用のボーナスは付かない。
+    // 通常のフローでは discover で has_website は弾かれるため、ここに到達しない設計。
     const r = scorePriority({
-      websiteClass: 'none',
+      websiteClass: 'has_website',
       isChainStore: false,
-      usesHttps: undefined,
       rating: 4.0,
       reviewCount: 30,
     });
-    // reviews 30 + rating 20 + none 20 = 70 (no https penalty)
-    expect(r.score).toBe(70);
-    expect(r.reasons.some((s) => s.includes('UsesHttps=true'))).toBe(false);
+    // reviews 30 + rating 20 = 50 (has_website 自体には加点なし)
+    expect(r.score).toBe(50);
+    expect(r.reasons.some((s) => s.includes('WebsiteClass=none'))).toBe(false);
+    expect(r.reasons.some((s) => s.includes('WebsiteClass=sns_only'))).toBe(false);
   });
 });

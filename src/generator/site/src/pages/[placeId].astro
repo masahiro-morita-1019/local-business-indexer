@@ -1,0 +1,39 @@
+---
+import { loadTargetsFile } from '../data/loadTargets.ts';
+import type { Target } from '../data/types.ts';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import GaihekiHomePage from '../templates/gaiheki/HomePage.astro';
+
+export async function getStaticPaths() {
+  const file = await loadTargetsFile();
+  return file.targets.map((target: Target) => ({
+    params: { placeId: target.placeId },
+    props: { target },
+  }));
+}
+
+interface Props {
+  target: Target;
+}
+const { target } = Astro.props;
+const isGaiheki = target.category === '外壁塗装';
+---
+{isGaiheki ? (
+  <GaihekiHomePage target={target} />
+) : (
+  <BaseLayout title={`${target.name} (テンプレ未対応)`}>
+    <main class="container fallback">
+      <h1>{target.name}</h1>
+      <p>
+        業種「{target.category}」用のテンプレはまだ用意されていません。
+        現在は外壁塗装のみ対応しています。
+      </p>
+      <p><a href="/">← 一覧に戻る</a></p>
+    </main>
+  </BaseLayout>
+)}
+<style>
+  .fallback {
+    padding: 4rem 0;
+  }
+</style>

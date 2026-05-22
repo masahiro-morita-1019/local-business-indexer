@@ -1,14 +1,17 @@
 import type { Classification as WebsiteClassification } from '../filter/noWebsite.ts';
 import type { ChainDetection } from './chainStore.ts';
-import type { HttpsDetection } from './https.ts';
 
 /**
- * 営業優先度の計算。Notion でソート/フィルタするための数値スコア + 3段階ラベル。
+ * 営業優先度の計算。Notion でソート/フィルタするための数値スコア + 4段階ラベル。
  *
  * 設計の出発点:
- *   - 「★3.5-4.2 + レビュー20件以上 + HPなし/古い」が最も売れる(記事より)
+ *   - 「★3.5-4.2 + レビュー20件以上 + HPなし」が最も売れる
  *   - 大手チェーンは即除外
  *   - ★が低すぎ(3.0未満) or レビュー数が極端に少ない(< 3)はノイズなので加点しない
+ *
+ * 2026-05-21 方針転換: D ルート(has_website への メール営業) を廃止。
+ * has_website は discover で Notion に新規 upsert されないため、has_website 系のルールは
+ * 入力としても発生しない想定だが、入力された場合でも控えめにスコアが下がるだけで害は無い。
  *
  * すべての加点ルールは PRIORITY_RULES に定義してある。ルール追加・変更時はそこを編集。
  * docs/classification-rules.md にも同じルールが記載されている — 編集時は両方更新すること。
@@ -20,7 +23,6 @@ export type PriorityLabel = (typeof PRIORITY_LABELS)[number];
 export interface PriorityInput {
   websiteClass: WebsiteClassification['class'];
   isChainStore: boolean;
-  usesHttps: HttpsDetection['uses']; // boolean | undefined
   rating: number | undefined;
   reviewCount: number | undefined;
 }
@@ -70,9 +72,7 @@ export const PRIORITY_RULES: readonly PriorityRule[] = [
   },
   // HP状態(これがコア)
   // 重みは「データ不確実性」を加味して控えめにしてある。詳しくは docs/classification-rules.md を参照。
-  // - WebsiteClass=none は Google ビジネスプロフィール非紐付けの可能性込み(=実は HP がある可能性)
-  // - has_website + UsesHttps=false は登録URLが古いだけで実際は https のケースあり
-  //   (Phase 1.5 の実HTTPプローブで上書きされた後は信頼度高)
+  // WebsiteClass=none は Google ビジネスプロフィール非紐付けの可能性込み(=実は HP がある可能性)
   {
     name: 'WebsiteClass=none(HP無し)',
     delta: 20,
@@ -82,16 +82,6 @@ export const PRIORITY_RULES: readonly PriorityRule[] = [
     name: 'WebsiteClass=sns_only(SNS/簡易LPのみ)',
     delta: 20,
     test: (i) => i.websiteClass === 'sns_only',
-  },
-  {
-    name: 'has_website + UsesHttps=false(古いHP / 営業余地あり)',
-    delta: 15,
-    test: (i) => i.websiteClass === 'has_website' && i.usesHttps === false,
-  },
-  {
-    name: 'has_website + UsesHttps=true(まともなHPあり、サイト制作営業の見込み薄)',
-    delta: -25,
-    test: (i) => i.websiteClass === 'has_website' && i.usesHttps === true,
   },
 ];
 
@@ -112,8 +102,6 @@ export function scorePriority(input: PriorityInput): PriorityResult {
     }
   }
 
-  // 「除外」は大手チェーンの場合のみに限定する。
-  // スコアが負になるケースは https ペナルティで普通に起きるため、それは「低」扱いで OK。
   let label: PriorityLabel;
   if (input.isChainStore) label = '除外';
   else if (score >= PRIORITY_THRESHOLDS.high) label = '高';
@@ -126,14 +114,12 @@ export function scorePriority(input: PriorityInput): PriorityResult {
 export function buildPriorityInput(args: {
   classification: WebsiteClassification;
   chain: ChainDetection;
-  https: HttpsDetection;
   rating: number | undefined;
   reviewCount: number | undefined;
 }): PriorityInput {
   return {
     websiteClass: args.classification.class,
     isChainStore: args.chain.isChain,
-    usesHttps: args.https.uses,
     rating: args.rating,
     reviewCount: args.reviewCount,
   };
