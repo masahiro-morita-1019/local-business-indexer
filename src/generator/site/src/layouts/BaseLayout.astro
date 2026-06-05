@@ -16,14 +16,19 @@ const { title, description } = Astro.props;
     <title>{title}</title>
     <style is:global>
       :root {
-        --c-bg: #fbfaf7;
-        --c-text: #1d1d1f;
-        --c-muted: #6b6b73;
-        --c-accent: #1f5f9b;
+        --c-bg: #f6f8f5;
+        --c-bg-soft: #edf3ec;
+        --c-text: #17211b;
+        --c-muted: #64736a;
+        --c-accent: #1f6f4a;
         --c-accent-fg: #ffffff;
-        --c-border: #e5e3dd;
+        --c-accent-soft: #dfeee4;
+        --c-navy: #17324d;
+        --c-navy-soft: #e7eef3;
+        --c-warm: #f7f1e7;
+        --c-border: #dbe4dc;
         --c-card: #ffffff;
-        --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.06);
+        --shadow-card: 0 16px 40px rgba(23, 50, 77, 0.08);
       }
       * {
         box-sizing: border-box;
@@ -43,30 +48,34 @@ const { title, description } = Astro.props;
         color: var(--c-accent);
       }
       .container {
-        max-width: 960px;
+        max-width: 1120px;
         margin: 0 auto;
         padding: 0 1.25rem;
       }
       .btn {
-        display: inline-block;
-        padding: 0.85rem 1.4rem;
-        border-radius: 9999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 3rem;
+        padding: 0.85rem 1.35rem;
+        border-radius: 8px;
         background: var(--c-accent);
         color: var(--c-accent-fg);
         text-decoration: none;
-        font-weight: 600;
+        font-weight: 700;
+        line-height: 1.3;
         box-shadow: var(--shadow-card);
       }
       .btn--ghost {
-        background: transparent;
-        color: var(--c-accent);
-        border: 1px solid var(--c-accent);
+        background: #ffffff;
+        color: var(--c-navy);
+        border: 1px solid var(--c-border);
         box-shadow: none;
       }
       .card {
         background: var(--c-card);
         border: 1px solid var(--c-border);
-        border-radius: 12px;
+        border-radius: 8px;
         padding: 1.25rem 1.5rem;
         box-shadow: var(--shadow-card);
       }
@@ -74,6 +83,36 @@ const { title, description } = Astro.props;
       h2,
       h3 {
         line-height: 1.35;
+      }
+      p {
+        overflow-wrap: anywhere;
+      }
+      .section-kicker {
+        margin: 0 0 0.45rem;
+        color: var(--c-accent);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .section-title {
+        margin: 0 0 1rem;
+        color: var(--c-text);
+        font-size: clamp(1.45rem, 3vw, 2rem);
+      }
+      .section-lede {
+        max-width: 44rem;
+        margin: 0 0 1.75rem;
+        color: var(--c-muted);
+        font-size: 0.98rem;
+      }
+      @media (max-width: 560px) {
+        .container {
+          padding: 0 1rem;
+        }
+        .btn {
+          width: 100%;
+        }
       }
     </style>
   </head>

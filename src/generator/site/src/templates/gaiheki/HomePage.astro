@@ -19,7 +19,7 @@ const description = `${target.area}で外壁塗装を手がける${target.name}�
     <div class="container topbar__inner">
       <span class="topbar__brand">{target.name}</span>
       <span class="topbar__hint">
-        ⚠️ これは外壁塗装サンプルHPです。事実情報は Google マップから取得しており、装飾コピーは汎用のたたき台です。
+        これは外壁塗装サンプルHPです。事実情報は Google マップから取得し、装飾コピーは汎用のたたき台です。
       </span>
     </div>
   </header>
@@ -29,8 +29,21 @@ const description = `${target.area}で外壁塗装を手がける${target.name}�
     subCatchphrase={copy.subCatchphrase}
   />
   <Services services={copy.services} whyPoints={copy.whyPoints} />
+  <section class="local-note">
+    <div class="container local-note__inner">
+      <div>
+        <p class="section-kicker">Local</p>
+        <h2 class="section-title">{target.area}で外壁まわりを相談したい方へ</h2>
+      </div>
+      <p>
+        住所、電話番号、営業時間、Google マップ情報など、確認できる事実情報を中心にまとめています。
+        施工実績や保証内容など、事業者ごとに確認が必要な情報はこのサンプルでは断定していません。
+      </p>
+    </div>
+  </section>
   <section class="flow">
     <div class="container">
+      <p class="section-kicker">Flow</p>
       <h2 class="section-title">ご依頼の流れ</h2>
       <ol class="flow__list">
         {copy.flow.map((step) => (
@@ -55,10 +68,10 @@ const description = `${target.area}で外壁塗装を手がける${target.name}�
 </BaseLayout>
 <style>
   .topbar {
-    background: #1d1d1f;
-    color: #f5f5f4;
+    background: #10263c;
+    color: #ffffff;
     font-size: 0.85rem;
-    padding: 0.5rem 0;
+    padding: 0.65rem 0;
   }
   .topbar__inner {
     display: flex;
@@ -71,42 +84,53 @@ const description = `${target.area}で外壁塗装を手がける${target.name}�
     font-weight: 600;
   }
   .topbar__hint {
-    color: #c8c5bf;
+    color: #cbd9d2;
+  }
+  .local-note {
+    padding: 0 0 4rem;
+  }
+  .local-note__inner {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: 2rem;
+    align-items: center;
+    padding-top: 2rem;
+    border-top: 1px solid var(--c-border);
+  }
+  .local-note p {
+    margin: 0;
+    color: var(--c-muted);
   }
   .flow {
-    padding: 3rem 0 1rem;
-  }
-  .section-title {
-    font-size: clamp(1.4rem, 3vw, 1.75rem);
-    margin: 0 0 1.5rem;
-    padding-left: 0.75rem;
-    border-left: 4px solid var(--c-accent);
+    padding: 4rem 0 1rem;
+    background: #ffffff;
   }
   .flow__list {
     list-style: none;
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 1rem;
   }
   .flow__item {
-    background: var(--c-card);
+    background: var(--c-bg);
     border: 1px solid var(--c-border);
-    border-radius: 10px;
-    padding: 1rem 1.25rem;
+    border-radius: 8px;
+    padding: 1.15rem 1.2rem;
   }
   .flow__step {
     margin: 0 0 0.25rem;
-    color: var(--c-accent);
-    font-weight: 600;
+    color: var(--c-navy);
+    font-weight: 800;
   }
   .flow__desc {
     margin: 0;
     font-size: 0.95rem;
   }
   .footer {
-    background: #1d1d1f;
-    color: #c8c5bf;
+    background: var(--c-navy);
+    color: #d7e3dc;
     padding: 2rem 0;
     font-size: 0.85rem;
   }
@@ -114,10 +138,16 @@ const description = `${target.area}で外壁塗装を手がける${target.name}�
     margin: 0 0 0.5rem;
   }
   .footer__addr {
-    color: #908d87;
+    color: #b7c9c0;
   }
   .footer__note {
-    color: #908d87;
+    color: #b7c9c0;
     font-size: 0.78rem;
+  }
+  @media (max-width: 760px) {
+    .local-note__inner {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
   }
 </style>

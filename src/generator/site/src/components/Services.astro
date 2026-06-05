@@ -11,10 +11,15 @@ const { services, whyPoints } = Astro.props;
 ---
 <section class="services">
   <div class="container">
-    <h2 class="section-title">対応工事</h2>
-    <div class="grid grid--3">
+    <p class="section-kicker">Services</p>
+    <h2 class="section-title">相談できる工事内容</h2>
+    <p class="section-lede">
+      外壁まわりは、塗装だけでなく屋根・目地・雨樋などをまとめて確認すると、必要な工事範囲を整理しやすくなります。
+    </p>
+    <div class="service-grid">
       {services.map((s) => (
-        <article class="card">
+        <article class="card service-card">
+          <span class="service-card__mark" aria-hidden="true"></span>
           <h3 class="card-title">{s.title}</h3>
           <p class="card-body">{s.description}</p>
         </article>
@@ -24,10 +29,11 @@ const { services, whyPoints } = Astro.props;
 </section>
 <section class="why">
   <div class="container">
-    <h2 class="section-title">こんなお悩みありませんか?</h2>
-    <div class="grid grid--2">
+    <p class="section-kicker">Check points</p>
+    <h2 class="section-title">現地で確認したいこと</h2>
+    <div class="check-grid">
       {whyPoints.map((p) => (
-        <article class="card card--soft">
+        <article class="check-card">
           <h3 class="card-title">{p.title}</h3>
           <p class="card-body">{p.description}</p>
         </article>
@@ -37,29 +43,43 @@ const { services, whyPoints } = Astro.props;
 </section>
 <style>
   .services {
-    padding: 3.5rem 0 1rem;
+    padding: 4.5rem 0 2rem;
   }
   .why {
-    padding: 2.5rem 0 3.5rem;
+    padding: 2rem 0 4.5rem;
   }
-  .section-title {
-    font-size: clamp(1.4rem, 3vw, 1.75rem);
-    margin: 0 0 1.5rem;
-    padding-left: 0.75rem;
-    border-left: 4px solid var(--c-accent);
-  }
-  .grid {
+  .service-grid {
     display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
     gap: 1rem;
   }
-  .grid--3 {
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  .service-card {
+    position: relative;
+    min-height: 13rem;
+    padding-top: 1.6rem;
   }
-  .grid--2 {
+  .service-card__mark {
+    display: block;
+    width: 2.2rem;
+    height: 0.28rem;
+    margin-bottom: 1.2rem;
+    border-radius: 999px;
+    background: var(--c-accent);
+  }
+  .check-grid {
+    display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+  .check-card {
+    padding: 1.25rem 1.35rem;
+    border: 1px solid #cfded3;
+    border-radius: 8px;
+    background: var(--c-accent-soft);
   }
   .card-title {
-    font-size: 1.05rem;
+    color: var(--c-text);
+    font-size: 1.08rem;
     margin: 0 0 0.5rem;
   }
   .card-body {

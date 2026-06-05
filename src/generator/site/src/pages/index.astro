@@ -20,7 +20,7 @@ const filterCategory = file.filter.category ?? '全業種';
       </p>
       <p class="preview__note">
         各カードをクリックすると、その企業向けに生成したサンプルHPが開きます。<br />
-        ⚠️ 装飾コピーは汎用テンプレ。電話番号・住所・レビューは Google マップ実データです。
+        装飾コピーは汎用テンプレ。電話番号・住所・レビューは Google マップ実データです。
       </p>
     </header>
 
@@ -44,7 +44,7 @@ const filterCategory = file.filter.category ?? '全業種';
             </p>
             {t.address && <p class="preview-card__addr">{t.address}</p>}
             <p class="preview-card__row preview-card__row--bottom">
-              <span class="preview-card__phone">📞 {t.phone || '電話番号不明'}</span>
+              <span class="preview-card__phone">{t.phone || '電話番号不明'}</span>
               <span class="preview-card__score">score {t.outreachScore}</span>
             </p>
             {t.outreachReasons && (
@@ -58,10 +58,15 @@ const filterCategory = file.filter.category ?? '全業種';
 </BaseLayout>
 <style>
   .preview {
-    padding: 3rem 0 4rem;
+    padding: 4rem 0 5rem;
   }
   .preview__header {
     margin-bottom: 2rem;
+    padding: 1.75rem;
+    border: 1px solid var(--c-border);
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: var(--shadow-card);
   }
   .preview__eyebrow {
     margin: 0 0 0.25rem;
@@ -71,7 +76,8 @@ const filterCategory = file.filter.category ?? '全業種';
   }
   .preview__title {
     margin: 0 0 1rem;
-    font-size: clamp(1.7rem, 4vw, 2.2rem);
+    color: var(--c-navy);
+    font-size: clamp(1.8rem, 4vw, 2.4rem);
   }
   .preview__meta {
     display: flex;
@@ -88,14 +94,14 @@ const filterCategory = file.filter.category ?? '全業種';
     line-height: 1.7;
   }
   .empty {
-    background: #fff8e1;
+    background: var(--c-warm);
     border: 1px dashed #d9c66a;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 1.5rem;
     margin: 2rem 0;
   }
   .empty pre {
-    background: #1d1d1f;
+    background: var(--c-navy);
     color: #f5f5f4;
     padding: 0.75rem 1rem;
     border-radius: 6px;
@@ -119,7 +125,7 @@ const filterCategory = file.filter.category ?? '全業種';
   }
   .preview-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 20px 46px rgba(23, 50, 77, 0.12);
   }
   .preview-card__row {
     display: flex;
@@ -134,6 +140,7 @@ const filterCategory = file.filter.category ?? '全業種';
   }
   .preview-card__title {
     margin: 0;
+    color: var(--c-navy);
     font-size: 1.05rem;
   }
   .preview-card__meta {
@@ -149,27 +156,27 @@ const filterCategory = file.filter.category ?? '全業種';
   .preview-card__reasons {
     margin: 0.5rem 0 0;
     font-size: 0.78rem;
-    color: #8c8a83;
+    color: var(--c-muted);
     line-height: 1.5;
   }
   .badge {
     display: inline-block;
-    padding: 0.15rem 0.55rem;
-    border-radius: 9999px;
+    padding: 0.18rem 0.55rem;
+    border-radius: 6px;
     font-size: 0.75rem;
     font-weight: 700;
     flex-shrink: 0;
   }
   .badge--高 {
-    background: #fde2e2;
-    color: #b32020;
+    background: #e3f1e8;
+    color: #1f6f4a;
   }
   .badge--中 {
-    background: #fff1cc;
-    color: #8a6d11;
+    background: #f7f1e7;
+    color: #806020;
   }
   .badge--低 {
-    background: #e3eaf2;
-    color: #4f637b;
+    background: var(--c-navy-soft);
+    color: var(--c-navy);
   }
 </style>
