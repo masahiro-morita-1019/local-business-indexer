@@ -1,0 +1,73 @@
+---
+interface FaqItem {
+  question: string;
+  answer: string;
+}
+interface SectionCopy {
+  kicker: string;
+  title: string;
+  lede: string;
+}
+interface Props {
+  items: FaqItem[];
+  section: SectionCopy;
+}
+const { items, section } = Astro.props;
+---
+<section class="faq">
+  <div class="container faq__inner">
+    <div>
+      <p class="section-kicker">{section.kicker}</p>
+      <h2 class="section-title">{section.title}</h2>
+      {section.lede && <p class="section-lede">{section.lede}</p>}
+    </div>
+    <div class="faq__list">
+      {items.map((item) => (
+        <details class="faq-item">
+          <summary>{item.question}</summary>
+          <p>{item.answer}</p>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>
+<style>
+  .faq {
+    padding: 4.75rem 0;
+    background: #ffffff;
+  }
+  .faq__inner {
+    display: grid;
+    grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+    gap: 2rem;
+    align-items: start;
+  }
+  .faq__list {
+    display: grid;
+    gap: 0.85rem;
+  }
+  .faq-item {
+    border: 1px solid var(--c-border);
+    border-radius: 8px;
+    background: var(--c-card);
+    box-shadow: var(--shadow-card);
+  }
+  .faq-item summary {
+    cursor: pointer;
+    padding: 1rem 1.15rem;
+    color: var(--c-navy);
+    font-weight: 800;
+    list-style-position: outside;
+  }
+  .faq-item p {
+    margin: 0;
+    padding: 0 1.15rem 1.15rem;
+    color: var(--c-muted);
+    font-size: 0.95rem;
+  }
+  @media (max-width: 820px) {
+    .faq__inner {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

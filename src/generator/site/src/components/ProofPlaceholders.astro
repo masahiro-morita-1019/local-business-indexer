@@ -1,0 +1,197 @@
+---
+interface Item {
+  title: string;
+  description: string;
+}
+interface CaseItem extends Item {
+  visualLabel: string;
+}
+interface SectionCopy {
+  kicker: string;
+  title: string;
+  lede: string;
+}
+interface Props {
+  casePlaceholders: CaseItem[];
+  trustMaterials: Item[];
+  estimateNotes: Item[];
+  caseSection: SectionCopy;
+  trustSection: SectionCopy;
+  estimateSection: SectionCopy;
+}
+const {
+  casePlaceholders,
+  trustMaterials,
+  estimateNotes,
+  caseSection,
+  trustSection,
+  estimateSection,
+} = Astro.props;
+---
+<section class="proof">
+  <div class="container">
+    <div class="proof__header">
+      <p class="section-kicker">{caseSection.kicker}</p>
+      <h2 class="section-title">{caseSection.title}</h2>
+      {caseSection.lede && <p class="section-lede">{caseSection.lede}</p>}
+    </div>
+    <div class="case-grid">
+      {casePlaceholders.map((item) => (
+        <article class="case-card">
+          <div class="case-card__visual">
+            <span>{item.visualLabel}</span>
+          </div>
+          <div class="case-card__body">
+            <h3>{item.title}</h3>
+            <p>{item.description}</p>
+          </div>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<section class="trust">
+  <div class="container trust__grid">
+    <div>
+      <p class="section-kicker">{trustSection.kicker}</p>
+      <h2 class="section-title">{trustSection.title}</h2>
+      {trustSection.lede && <p class="section-lede">{trustSection.lede}</p>}
+    </div>
+    <div class="trust__cards">
+      {trustMaterials.map((item) => (
+        <article class="trust-card">
+          <h3>{item.title}</h3>
+          <p>{item.description}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<section class="estimate">
+  <div class="container">
+    <p class="section-kicker">{estimateSection.kicker}</p>
+    <h2 class="section-title">{estimateSection.title}</h2>
+    {estimateSection.lede && <p class="section-lede">{estimateSection.lede}</p>}
+    <div class="estimate__grid">
+      {estimateNotes.map((item) => (
+        <article class="estimate-card">
+          <h3>{item.title}</h3>
+          <p>{item.description}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .proof {
+    padding: 4.75rem 0;
+    background: #ffffff;
+  }
+  .proof__header {
+    max-width: 48rem;
+  }
+  .case-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+  }
+  .case-card {
+    overflow: hidden;
+    border: 1px solid var(--c-border);
+    border-radius: 8px;
+    background: var(--c-card);
+    box-shadow: var(--shadow-card);
+  }
+  .case-card__visual {
+    display: grid;
+    min-height: 11rem;
+    place-items: center;
+    background:
+      linear-gradient(135deg, rgba(23, 50, 77, 0.9), rgba(31, 111, 74, 0.62)),
+      repeating-linear-gradient(45deg, #dbe4dc 0 12px, #edf3ec 12px 24px);
+    color: #ffffff;
+    font-size: 0.85rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .case-card__visual span {
+    padding: 0.45rem 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.34);
+    border-radius: 999px;
+    background: rgba(23, 50, 77, 0.56);
+  }
+  .case-card__body {
+    padding: 1.2rem 1.25rem 1.35rem;
+  }
+  .case-card h3,
+  .trust-card h3,
+  .estimate-card h3 {
+    margin: 0 0 0.45rem;
+    color: var(--c-text);
+    font-size: 1.05rem;
+  }
+  .case-card p,
+  .trust-card p,
+  .estimate-card p {
+    margin: 0;
+    color: var(--c-muted);
+    font-size: 0.94rem;
+  }
+  .trust {
+    padding: 4.75rem 0;
+    background: var(--c-navy);
+    color: #ffffff;
+  }
+  .trust .section-title {
+    color: #ffffff;
+  }
+  .trust .section-lede {
+    color: #d7e3dc;
+  }
+  .trust__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
+    gap: 2rem;
+    align-items: start;
+  }
+  .trust__cards {
+    display: grid;
+    gap: 0.85rem;
+  }
+  .trust-card {
+    padding: 1.15rem 1.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .trust-card h3 {
+    color: #ffffff;
+  }
+  .trust-card p {
+    color: #d7e3dc;
+  }
+  .estimate {
+    padding: 4.75rem 0;
+    background: var(--c-warm);
+  }
+  .estimate__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1rem;
+  }
+  .estimate-card {
+    padding: 1.2rem 1.25rem;
+    border: 1px solid #e1d5c2;
+    border-radius: 8px;
+    background: #ffffff;
+  }
+  @media (max-width: 820px) {
+    .trust__grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

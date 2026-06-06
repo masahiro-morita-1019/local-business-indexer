@@ -3,10 +3,16 @@ import type { Target } from '../data/types.ts';
 
 interface Props {
   target: Target;
+  eyebrow: string;
   catchphrase: string;
   subCatchphrase: string;
+  note: string;
+  mediaSrc: string;
+  mediaAlt: string;
+  mediaCaption: string[];
 }
-const { target, catchphrase, subCatchphrase } = Astro.props;
+const { target, eyebrow, catchphrase, subCatchphrase, note, mediaSrc, mediaAlt, mediaCaption } =
+  Astro.props;
 const telHref = target.phone ? `tel:${target.phone.replace(/-/g, '')}` : null;
 const ratingDisplay =
   target.rating != null && target.reviewCount != null && target.reviewCount > 0
@@ -16,7 +22,7 @@ const ratingDisplay =
 <section class="hero">
   <div class="container hero__inner">
     <div class="hero__content">
-      <p class="hero__eyebrow">{target.area}の外壁塗装・住まいのメンテナンス相談</p>
+      <p class="hero__eyebrow">{eyebrow}</p>
       <h1 class="hero__title">{catchphrase}</h1>
       <p class="hero__lede">{subCatchphrase}</p>
       <div class="hero__signals" aria-label="掲載している事実情報">
@@ -38,19 +44,16 @@ const ratingDisplay =
           </a>
         )}
       </div>
-      <p class="hero__note">
-        住所・電話番号・Google評価などの事実情報をもとにした、確認用のサンプルページです。
-      </p>
+      <p class="hero__note">{note}</p>
     </div>
     <div class="hero__media" aria-label="住宅外観の汎用イメージ">
       <img
-        src="/assets/gaiheki-hero-home-maintenance.png"
-        alt="手入れされた住宅外観のイメージ"
+        src={mediaSrc}
+        alt={mediaAlt}
         loading="eager"
       />
       <div class="hero__mediaCaption">
-        <span>外壁・屋根の状態確認</span>
-        <span>色あせ・ひび割れ・雨まわりの相談</span>
+        {mediaCaption.map((line) => <span>{line}</span>)}
       </div>
     </div>
   </div>

@@ -3,19 +3,39 @@ interface ServiceItem {
   title: string;
   description: string;
 }
+interface SectionCopy {
+  kicker: string;
+  title: string;
+  lede: string;
+}
 interface Props {
   services: ServiceItem[];
   whyPoints: ServiceItem[];
+  whySection: SectionCopy;
+  servicesSection: SectionCopy;
 }
-const { services, whyPoints } = Astro.props;
+const { services, whyPoints, whySection, servicesSection } = Astro.props;
 ---
+<section class="why">
+  <div class="container">
+    <p class="section-kicker">{whySection.kicker}</p>
+    <h2 class="section-title">{whySection.title}</h2>
+    {whySection.lede && <p class="section-lede">{whySection.lede}</p>}
+    <div class="check-grid">
+      {whyPoints.map((p) => (
+        <article class="check-card">
+          <h3 class="card-title">{p.title}</h3>
+          <p class="card-body">{p.description}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
 <section class="services">
   <div class="container">
-    <p class="section-kicker">Services</p>
-    <h2 class="section-title">相談できる工事内容</h2>
-    <p class="section-lede">
-      外壁まわりは、塗装だけでなく屋根・目地・雨樋などをまとめて確認すると、必要な工事範囲を整理しやすくなります。
-    </p>
+    <p class="section-kicker">{servicesSection.kicker}</p>
+    <h2 class="section-title">{servicesSection.title}</h2>
+    {servicesSection.lede && <p class="section-lede">{servicesSection.lede}</p>}
     <div class="service-grid">
       {services.map((s) => (
         <article class="card service-card">
@@ -27,26 +47,13 @@ const { services, whyPoints } = Astro.props;
     </div>
   </div>
 </section>
-<section class="why">
-  <div class="container">
-    <p class="section-kicker">Check points</p>
-    <h2 class="section-title">現地で確認したいこと</h2>
-    <div class="check-grid">
-      {whyPoints.map((p) => (
-        <article class="check-card">
-          <h3 class="card-title">{p.title}</h3>
-          <p class="card-body">{p.description}</p>
-        </article>
-      ))}
-    </div>
-  </div>
-</section>
 <style>
   .services {
-    padding: 4.5rem 0 2rem;
+    padding: 2rem 0 4.75rem;
   }
   .why {
-    padding: 2rem 0 4.5rem;
+    padding: 4.75rem 0 2rem;
+    background: #ffffff;
   }
   .service-grid {
     display: grid;

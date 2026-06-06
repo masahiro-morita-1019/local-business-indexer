@@ -1,6 +1,8 @@
 ---
 import ContactSection from '../../components/ContactSection.astro';
+import FaqSection from '../../components/FaqSection.astro';
 import Hero from '../../components/Hero.astro';
+import ProofPlaceholders from '../../components/ProofPlaceholders.astro';
 import Services from '../../components/Services.astro';
 import type { Target } from '../../data/types.ts';
 import BaseLayout from '../../layouts/BaseLayout.astro';
@@ -11,40 +13,63 @@ interface Props {
 }
 const { target } = Astro.props;
 const copy = defaultGaihekiCopy;
-const title = `${target.name}|${target.area}の外壁塗装(サンプル)`;
-const description = `${target.area}で外壁塗装を手がける${target.name}のご紹介サイト(サンプル)。`;
+const title = `${target.name}|${target.area}の${target.category}(サンプル)`;
+const description = `${target.area}で${target.category}を手がける${target.name}のご紹介サイト(サンプル)。`;
+const telHref = target.phone ? `tel:${target.phone.replace(/-/g, '')}` : null;
+const formatCopy = (text: string) =>
+  text
+    .replaceAll('{area}', target.area)
+    .replaceAll('{category}', target.category)
+    .replaceAll('{name}', target.name);
 ---
 <BaseLayout title={title} description={description}>
   <header class="topbar">
     <div class="container topbar__inner">
       <span class="topbar__brand">{target.name}</span>
       <span class="topbar__hint">
-        これは外壁塗装サンプルHPです。事実情報は Google マップから取得し、装飾コピーは汎用のたたき台です。
+        {copy.sampleLabel}
       </span>
     </div>
   </header>
   <Hero
     target={target}
+    eyebrow={formatCopy(copy.hero.eyebrow)}
     catchphrase={copy.catchphrase}
     subCatchphrase={copy.subCatchphrase}
+    note={formatCopy(copy.hero.note)}
+    mediaSrc={copy.hero.mediaSrc}
+    mediaAlt={copy.hero.mediaAlt}
+    mediaCaption={copy.hero.mediaCaption.map(formatCopy)}
   />
-  <Services services={copy.services} whyPoints={copy.whyPoints} />
+  <Services
+    services={copy.services}
+    whyPoints={copy.whyPoints}
+    whySection={copy.sections.why}
+    servicesSection={copy.sections.services}
+  />
+  <ProofPlaceholders
+    casePlaceholders={copy.casePlaceholders}
+    trustMaterials={copy.trustMaterials}
+    estimateNotes={copy.estimateNotes}
+    caseSection={copy.sections.cases}
+    trustSection={copy.sections.trust}
+    estimateSection={copy.sections.estimate}
+  />
   <section class="local-note">
     <div class="container local-note__inner">
       <div>
-        <p class="section-kicker">Local</p>
-        <h2 class="section-title">{target.area}で外壁まわりを相談したい方へ</h2>
+        <p class="section-kicker">{copy.sections.local.kicker}</p>
+        <h2 class="section-title">{formatCopy(copy.sections.local.title)}</h2>
       </div>
-      <p>
-        住所、電話番号、営業時間、Google マップ情報など、確認できる事実情報を中心にまとめています。
-        施工実績や保証内容など、事業者ごとに確認が必要な情報はこのサンプルでは断定していません。
-      </p>
+      <p>{formatCopy(copy.sections.local.body)}</p>
     </div>
   </section>
+  <FaqSection items={copy.faqItems} section={copy.sections.faq} />
   <section class="flow">
     <div class="container">
-      <p class="section-kicker">Flow</p>
-      <h2 class="section-title">ご依頼の流れ</h2>
+      <p class="section-kicker">{copy.sections.flow.kicker}</p>
+      <h2 class="section-title">{copy.sections.flow.title}</h2>
+      {copy.sections.flow.lede && <p class="section-lede">{copy.sections.flow.lede}</p>}
       <ol class="flow__list">
         {copy.flow.map((step) => (
           <li class="flow__item">
@@ -56,6 +81,20 @@ const description = `${target.area}で外壁塗装を手がける${target.name}�
     </div>
   </section>
   <ContactSection target={target} closingNote={copy.closingNote} />
+  {(telHref || target.googleMapsUrl) && (
+    <nav class="mobile-cta" aria-label="スマートフォン用お問い合わせ導線">
+      {telHref && (
+        <a class="mobile-cta__button mobile-cta__button--primary" href={telHref}>
+          {copy.mobileCta.callLabel}
+        </a>
+      )}
+      {target.googleMapsUrl && (
+        <a class="mobile-cta__button" href={target.googleMapsUrl} target="_blank" rel="noopener">
+          {copy.mobileCta.mapLabel}
+        </a>
+      )}
+    </nav>
+  )}
   <footer class="footer">
     <div class="container footer__inner">
       <p>{target.name}</p>
@@ -85,25 +124,28 @@ const description = `${target.area}で外壁塗装を手がける${target.name}�
   }
   .topbar__hint {
     color: #cbd9d2;
+    font-weight: 700;
   }
   .local-note {
-    padding: 0 0 4rem;
+    padding: 4rem 0;
+    background: var(--c-bg);
   }
   .local-note__inner {
     display: grid;
     grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
     gap: 2rem;
     align-items: center;
-    padding-top: 2rem;
+    padding: 1.5rem 0;
     border-top: 1px solid var(--c-border);
+    border-bottom: 1px solid var(--c-border);
   }
   .local-note p {
     margin: 0;
     color: var(--c-muted);
   }
   .flow {
-    padding: 4rem 0 1rem;
-    background: #ffffff;
+    padding: 4.75rem 0 1rem;
+    background: var(--c-bg);
   }
   .flow__list {
     list-style: none;
@@ -144,10 +186,52 @@ const description = `${target.area}で外壁塗装を手がける${target.name}�
     color: #b7c9c0;
     font-size: 0.78rem;
   }
+  .mobile-cta {
+    display: none;
+  }
   @media (max-width: 760px) {
     .local-note__inner {
       grid-template-columns: 1fr;
       gap: 1rem;
+    }
+  }
+  @media (max-width: 640px) {
+    .footer {
+      padding-bottom: 6.5rem;
+    }
+    .mobile-cta {
+      position: fixed;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+      gap: 0.5rem;
+      padding: 0.75rem 1rem max(0.75rem, env(safe-area-inset-bottom));
+      border-top: 1px solid rgba(23, 50, 77, 0.12);
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 -12px 30px rgba(23, 50, 77, 0.14);
+      backdrop-filter: blur(10px);
+    }
+    .mobile-cta__button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 2.75rem;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid var(--c-border);
+      border-radius: 8px;
+      background: #ffffff;
+      color: var(--c-navy);
+      font-size: 0.92rem;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .mobile-cta__button--primary {
+      border-color: var(--c-accent);
+      background: var(--c-accent);
+      color: #ffffff;
     }
   }
 </style>
